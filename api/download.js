@@ -19,6 +19,45 @@ async function upstashRedis(command, ...args) {
   }
 }
 
+// SnapSave / FB Downloader Parser
+async function parseFbVideo(fbUrl) {
+  const params = new URLSearchParams();
+  params.append('q', fbUrl);
+  params.append('vt', 'facebook');
+
+  const res = await axios.post('https://snapsave.app/action.php', params, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+      'Origin': 'https://snapsave.app',
+      'Referer': 'https://snapsave.app/',
+      'Content-Type': 'application/x-www-form-urlencoded'
+    },
+    timeout: 10000
+  });
+
+  const html = res.data;
+
+  // Extract links from response HTML or obfuscated script
+  const hdMatch = html.match(/href="(https:\/\/[^"]+)"[^>]*>Render HD/i) || 
+                  html.match(/href="(https:\/\/[^"]+)"[^>]*>Download HD/i) ||
+                  html.match(/https:\/\/[^"'\s]+\.mp4[^"'\s]*/gi);
+
+  const sdMatch = html.match(/href="(https:\/\/[^"]+)"[^>]*>Download SD/i) ||
+                  html.match(/href="(https:\/\/[^"]+)"[^>]*>Download/i);
+
+  let hdUrl = null;
+  let sdUrl = null;
+
+  if (Array.isArray(hdMatch)) {
+    hdUrl = hdMatch[0].replace(/&amp;/g, '&');
+  }
+  if (Array.isArray(sdMatch)) {
+    sdUrl = sdMatch[1] ? sdMatch[1].replace(/&amp;/g, '&') : sdMatch[0].replace(/&amp;/g, '&');
+  }
+
+  return { hdUrl, sdUrl };
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -44,36 +83,31 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Primary API Service for FB Video Parsing
-    const apiUrl = `https://api.vytal.cx/fb?url=${encodeURIComponent(url)}`;
-    
-    // Backup API Service
-    const backupApiUrl = `https://fdown-api.vercel.app/api/download?url=${encodeURIComponent(url)}`;
+    let hdUrl = null;
+    let sdUrl = null;
 
-    let videoData = null;
-
+    // Method 1: SnapSave Action Engine
     try {
-      const response = await axios.get(apiUrl, { timeout: 8000 });
-      if (response.data && (response.data.hd || response.data.sd || response.data.downloads)) {
-        videoData = response.data;
-      }
+      const parsed = await parseFbVideo(url);
+      hdUrl = parsed.hdUrl;
+      sdUrl = parsed.sdUrl;
     } catch (e) {
-      console.log('Primary API failed, trying backup...');
+      console.log('SnapSave engine failed, falling back to public API...');
     }
 
-    // Fallback kung nag-fail ang primary
-    if (!videoData) {
-      const backupResponse = await axios.get(backupApiUrl, { timeout: 8000 });
-      videoData = backupResponse.data;
+    // Method 2: Public Rapid Scraping Fallback
+    if (!hdUrl && !sdUrl) {
+      try {
+        const fbRes = await axios.get(`https://api.vytal.cx/fb?url=${encodeURIComponent(url)}`, { timeout: 7000 });
+        hdUrl = fbRes.data?.hd || fbRes.data?.downloads?.hd;
+        sdUrl = fbRes.data?.sd || fbRes.data?.downloads?.sd;
+      } catch (e) {}
     }
-
-    const hdUrl = videoData?.downloads?.hd || videoData?.hd || null;
-    const sdUrl = videoData?.downloads?.sd || videoData?.sd || hdUrl;
 
     if (!hdUrl && !sdUrl) {
       return res.status(404).json({
         success: false,
-        message: 'Hindi ma-extract ang video. Siguraduhing Public ang post at pampublikong FB page/profile ito.'
+        message: 'Hindi ma-extract ang video. Pakisiguradong Public Post / Reel ang link.'
       });
     }
 
@@ -82,11 +116,11 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       success: true,
-      title: videoData.title || 'Facebook_Video',
-      thumbnail: videoData.thumbnail || videoData.thumb || '',
+      title: 'Facebook_Video',
+      thumbnail: '',
       downloads: {
         hd: hdUrl,
-        sd: sdUrl
+        sd: sdUrl || hdUrl
       },
       totalDownloads: totalDownloads || 0
     });
@@ -94,7 +128,7 @@ export default async function handler(req, res) {
   } catch (error) {
     return res.status(500).json({
       success: false,
-      message: 'Extraction Error: Hindi makuha ang video link. Subukan ang ibang Facebook Video URL.'
+      message: 'Extraction Error: ' + (error.message || 'Hindi ma-process ang video.')
     });
   }
 }
