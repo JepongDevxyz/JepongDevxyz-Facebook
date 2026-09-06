@@ -93,22 +93,15 @@
                     </div>
                 </div>
 
-                <!-- Submit Button with Carbon Copy Spinner -->
                 <button type="submit" id="submitBtn" class="w-full py-3.5 bg-[#2563eb] hover:bg-blue-700 text-white font-semibold rounded-xl shadow-md transition-all flex items-center justify-center gap-2">
                     <i data-lucide="download" class="w-5 h-5"></i>
                     <span>Generate</span>
                 </button>
             </form>
 
-            <!-- Loading Spinner State (Carbon Copy match sa Reference Video) -->
-            <div id="loadingState" class="hidden text-center py-6 space-y-4">
-                <div class="flex items-center justify-center gap-3">
-                    <div class="inline-block animate-spin rounded-full h-5 w-5 border-2 border-blue-600 border-t-transparent"></div>
-                    <span class="text-blue-600 dark:text-blue-400 font-semibold text-base">Processing...</span>
-                </div>
-                <div class="flex justify-center">
-                    <div class="inline-block animate-spin rounded-full h-7 w-7 border-4 border-slate-200 dark:border-slate-700 border-t-blue-600"></div>
-                </div>
+            <!-- Fixed Loading Spinner State (Carbon copy match sa video) -->
+            <div id="loadingState" class="hidden text-center py-6 space-y-3">
+                <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-slate-200 dark:border-slate-700 border-t-blue-600 mx-auto"></div>
                 <p class="text-slate-500 dark:text-slate-400 text-sm font-medium">Generating download options...</p>
             </div>
 
@@ -300,26 +293,20 @@
             }
         });
 
-        // Direct Download via Invisible Hidden Iframe to bypass CORS and prevent opening new tab
+        // Safe direct download handler para maiwasan ang bagong tab
         document.getElementById('resDownloadBtn').addEventListener('click', () => {
             if (!currentDownloadUrl) return;
 
             showToast('Downloading...');
 
-            const safeTitle = currentTitle.replace(/[^a-zA-Z0-9]/g, "_");
-            const fileName = `${safeTitle}.${currentSelectedFormat}`;
-
-            // Gumamit ng hidden iframe para ma-trigger ang direktang file download nang walang new tab o CORS error
-            const iframe = document.createElement('iframe');
-            iframe.style.display = 'none';
-            
-            // Kung may support ang browser sa download attribute, pwede rin natin i-direct link trick o proxy download URL
-            iframe.src = `${currentDownloadUrl}&title=${encodeURIComponent(fileName)}`;
-            document.body.appendChild(iframe);
-
-            setTimeout(() => {
-                document.body.removeChild(iframe);
-            }, 10000);
+            // Gamitin ang temporary anchor trick para ma-trigger ang file download sa mobile browser
+            const a = document.createElement('a');
+            a.href = currentDownloadUrl;
+            a.target = '_blank';
+            a.rel = 'noopener noreferrer';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
         });
 
         document.getElementById('generateAnotherBtn').addEventListener('click', () => {
