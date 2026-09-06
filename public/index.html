@@ -99,7 +99,7 @@
                 </button>
             </form>
 
-            <!-- Fixed Loading Spinner State (Carbon copy match sa video) -->
+            <!-- Fixed Spinner State (Awtomatikong iikot nang maayos) -->
             <div id="loadingState" class="hidden text-center py-6 space-y-3">
                 <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-slate-200 dark:border-slate-700 border-t-blue-600 mx-auto"></div>
                 <p class="text-slate-500 dark:text-slate-400 text-sm font-medium">Generating download options...</p>
@@ -293,20 +293,36 @@
             }
         });
 
-        // Safe direct download handler para maiwasan ang bagong tab
-        document.getElementById('resDownloadBtn').addEventListener('click', () => {
+        // Direct Download via Blob/Object URL para hindi magbukas ng bagong tab sa browser
+        document.getElementById('resDownloadBtn').addEventListener('click', async () => {
             if (!currentDownloadUrl) return;
 
             showToast('Downloading...');
 
-            // Gamitin ang temporary anchor trick para ma-trigger ang file download sa mobile browser
-            const a = document.createElement('a');
-            a.href = currentDownloadUrl;
-            a.target = '_blank';
-            a.rel = 'noopener noreferrer';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
+            const safeTitle = currentTitle.replace(/[^a-zA-Z0-9]/g, "_").substring(0, 50);
+            const fileName = `${safeTitle}.${currentSelectedFormat}`;
+
+            try {
+                const response = await fetch(currentDownloadUrl);
+                const blob = await response.blob();
+                const blobUrl = URL.createObjectURL(blob);
+                
+                const link = document.createElement('a');
+                link.href = blobUrl;
+                link.download = fileName;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(blobUrl);
+            } catch (e) {
+                // Fallback kung sakaling may strict CORS restriction sa CDN, gamitin ang hidden link download
+                const link = document.createElement('a');
+                link.href = currentDownloadUrl;
+                link.setAttribute('download', fileName);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
         });
 
         document.getElementById('generateAnotherBtn').addEventListener('click', () => {
