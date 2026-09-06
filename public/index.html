@@ -3,9 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Facebook Video Downloader</title>
+    <title>JepongDevxyz - FBDL4U</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'media', // Automatic basis sa system/phone theme ng user
+        }
+    </script>
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
@@ -13,13 +18,25 @@
         body { font-family: 'Inter', sans-serif; }
     </style>
 </head>
-<body class="bg-[#f8fafc] text-slate-800 min-h-screen flex flex-col justify-between antialiased">
+<body class="bg-[#f8fafc] dark:bg-slate-900 text-slate-800 dark:text-slate-100 min-h-screen flex flex-col justify-between antialiased transition-colors duration-200">
+
+    <!-- Toast Notification (Powered by Jepong Devxyz) -->
+    <div id="toast" class="fixed top-5 right-5 z-50 transform translate-y-[-150%] opacity-0 transition-all duration-300 bg-slate-900 dark:bg-slate-800 text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 border border-slate-700">
+        <i data-lucide="check-circle" class="w-5 h-5 text-emerald-400"></i>
+        <div>
+            <p class="text-sm font-bold" id="toastTitle">Downloading...</p>
+            <p class="text-xs text-slate-400">Powered by Jepong Devxyz</p>
+        </div>
+    </div>
 
     <!-- Top Navigation Header -->
     <header class="bg-[#5850ec] text-white py-4 px-6 flex items-center shadow-md">
         <div class="max-w-4xl w-full mx-auto flex items-center gap-3">
-            <div class="bg-white/20 p-2 rounded-full flex items-center justify-center">
-                <i data-lucide="facebook" class="w-6 h-6 fill-white text-[#5850ec]"></i>
+            <!-- Fixed Facebook White Logo -->
+            <div class="bg-white p-2 rounded-full flex items-center justify-center">
+                <svg class="w-6 h-6 fill-[#5850ec]" viewBox="0 0 24 24">
+                    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                </svg>
             </div>
             <h1 class="text-xl font-bold tracking-tight">Facebook Video Downloader</h1>
         </div>
@@ -30,162 +47,164 @@
         
         <!-- Hero Title Header -->
         <div class="text-center mb-8">
-            <h2 class="text-3xl font-extrabold text-slate-900 tracking-tight">Download Facebook Videos</h2>
-            <p class="text-slate-500 text-sm mt-2">Enter a Facebook video URL and select your preferred quality</p>
+            <h2 class="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">Download Facebook Videos</h2>
+            <p class="text-slate-500 dark:text-slate-400 text-sm mt-2">Enter a Facebook video URL and select your preferred quality</p>
         </div>
 
         <!-- Form Card -->
-        <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6 space-y-6">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700 shadow-sm p-6 space-y-6">
             <form id="downloadForm" class="space-y-6">
                 <!-- Input URL Field -->
                 <div>
-                    <label class="block text-sm font-semibold text-slate-700 mb-2">Facebook Video URL</label>
+                    <label class="block text-sm font-semibold text-slate-700 dark:text-slate-200 mb-2">Facebook Video Link</label>
                     <div class="relative">
                         <input type="url" id="videoUrl" required 
                                placeholder="https://www.facebook.com/share/v/..." 
-                               class="w-full px-4 py-3 border border-slate-300 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#2563eb] focus:border-transparent transition-all pr-10 text-sm">
+                               class="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 dark:bg-slate-900 dark:text-white rounded-xl placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#2563eb] focus:border-transparent transition-all pr-10 text-sm">
                         <i data-lucide="link-2" class="w-5 h-5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2"></i>
                     </div>
                 </div>
 
                 <!-- Video Quality Radio Options Grid -->
                 <div>
-                    <label class="block text-sm font-semibold text-slate-700 mb-2">Video Quality</label>
+                    <label class="block text-sm font-semibold text-slate-700 dark:text-slate-200 mb-2">Video Quality / Format</label>
                     <div class="grid grid-cols-2 gap-3">
-                        <label class="quality-card flex items-center justify-between p-3.5 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 transition-all">
-                            <span class="text-sm font-medium text-slate-700">Best</span>
+                        <label class="quality-card flex items-center justify-between p-3.5 border border-slate-200 dark:border-slate-700 rounded-xl cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-all">
+                            <span class="text-sm font-medium text-slate-700 dark:text-slate-200">Best</span>
                             <input type="radio" name="quality" value="best" checked class="w-4 h-4 text-blue-600 focus:ring-blue-500">
                         </label>
-                        <label class="quality-card flex items-center justify-between p-3.5 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 transition-all">
-                            <span class="text-sm font-medium text-slate-700">1080p</span>
+                        <label class="quality-card flex items-center justify-between p-3.5 border border-slate-200 dark:border-slate-700 rounded-xl cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-all">
+                            <span class="text-sm font-medium text-slate-700 dark:text-slate-200">1080p</span>
                             <input type="radio" name="quality" value="1080p" class="w-4 h-4 text-blue-600 focus:ring-blue-500">
                         </label>
-                        <label class="quality-card flex items-center justify-between p-3.5 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 transition-all">
-                            <span class="text-sm font-medium text-slate-700">720p</span>
+                        <label class="quality-card flex items-center justify-between p-3.5 border border-slate-200 dark:border-slate-700 rounded-xl cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-all">
+                            <span class="text-sm font-medium text-slate-700 dark:text-slate-200">720p</span>
                             <input type="radio" name="quality" value="720p" class="w-4 h-4 text-blue-600 focus:ring-blue-500">
                         </label>
-                        <label class="quality-card flex items-center justify-between p-3.5 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 transition-all">
-                            <span class="text-sm font-medium text-slate-700">360p</span>
+                        <label class="quality-card flex items-center justify-between p-3.5 border border-slate-200 dark:border-slate-700 rounded-xl cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-all">
+                            <span class="text-sm font-medium text-slate-700 dark:text-slate-200">360p</span>
                             <input type="radio" name="quality" value="360p" class="w-4 h-4 text-blue-600 focus:ring-blue-500">
                         </label>
-                        <label class="quality-card flex items-center justify-between p-3.5 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 transition-all col-span-1">
-                            <span class="text-sm font-medium text-slate-700">Worst</span>
+                        <label class="quality-card flex items-center justify-between p-3.5 border border-slate-200 dark:border-slate-700 rounded-xl cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-all">
+                            <span class="text-sm font-medium text-slate-700 dark:text-slate-200">Low Quality</span>
                             <input type="radio" name="quality" value="worst" class="w-4 h-4 text-blue-600 focus:ring-blue-500">
+                        </label>
+                        <!-- MP3 Audio Only Option -->
+                        <label class="quality-card flex items-center justify-between p-3.5 border border-amber-300 dark:border-amber-600 bg-amber-50/40 dark:bg-amber-950/20 rounded-xl cursor-pointer hover:bg-amber-100/50 transition-all">
+                            <span class="text-sm font-semibold text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
+                                <i data-lucide="music" class="w-4 h-4"></i> Audio (.MP3)
+                            </span>
+                            <input type="radio" name="quality" value="mp3" class="w-4 h-4 text-amber-600 focus:ring-amber-500">
                         </label>
                     </div>
                 </div>
 
-                <!-- Submit Button -->
+                <!-- Submit Button with Matching Spinner -->
                 <button type="submit" id="submitBtn" class="w-full py-3.5 bg-[#2563eb] hover:bg-blue-700 text-white font-semibold rounded-xl shadow-md transition-all flex items-center justify-center gap-2">
                     <i data-lucide="download" class="w-5 h-5"></i>
-                    <span>Download Video</span>
+                    <span>Generate</span>
                 </button>
             </form>
 
-            <!-- Loading Spinner State -->
+            <!-- Loading Spinner State (Matched design) -->
             <div id="loadingState" class="hidden text-center py-6 space-y-3">
-                <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-200 border-t-blue-600"></div>
-                <p class="text-slate-500 text-sm font-medium">Processing your video...</p>
+                <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-slate-200 dark:border-slate-700 border-t-blue-600"></div>
+                <p class="text-slate-500 dark:text-slate-400 text-sm font-medium">Generating download options...</p>
             </div>
 
             <!-- Error Box Container -->
-            <div id="errorState" class="hidden p-4 bg-red-50 border border-red-200 rounded-xl space-y-1">
-                <h4 class="text-red-700 font-bold text-base">Error</h4>
-                <p id="errorMessage" class="text-red-600 text-sm">Failed to extract video information: This video is private or not available for download.</p>
+            <div id="errorState" class="hidden p-4 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-xl space-y-1">
+                <h4 class="text-red-700 dark:text-red-400 font-bold text-base">Error</h4>
+                <p id="errorMessage" class="text-red-600 dark:text-red-300 text-sm">Failed to extract video information.</p>
             </div>
 
-            <!-- Success Box (Video Ready State) -->
-            <div id="successState" class="hidden p-5 bg-[#ecfdf5] border border-[#a7f3d0] rounded-xl space-y-4">
-                <h3 class="text-emerald-800 font-bold text-lg">Video Ready!</h3>
-                <div class="space-y-2 text-sm text-slate-700">
+            <!-- Success Box (Video Ready State with Preview) -->
+            <div id="successState" class="hidden p-5 bg-[#ecfdf5] dark:bg-emerald-950/30 border border-[#a7f3d0] dark:border-emerald-800 rounded-xl space-y-4">
+                <h3 class="text-emerald-800 dark:text-emerald-400 font-bold text-lg">JepongDevxyz - FBDL4U</h3>
+                
+                <!-- Video Preview Image -->
+                <div id="previewContainer" class="relative rounded-lg overflow-hidden border border-emerald-200 dark:border-emerald-800 shadow-sm bg-black aspect-video flex items-center justify-center">
+                    <img id="resThumbnail" src="" alt="Video Preview" class="w-full h-full object-cover">
+                </div>
+
+                <div class="space-y-2 text-sm text-slate-700 dark:text-slate-300">
                     <div>
-                        <span class="block text-slate-500 text-xs font-semibold uppercase tracking-wider">Title:</span>
-                        <p id="resTitle" class="font-medium text-slate-900 mt-0.5">-</p>
+                        <span class="block text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider">Title:</span>
+                        <p id="resTitle" class="font-medium text-slate-900 dark:text-white mt-0.5">-</p>
                     </div>
                     <div>
-                        <span class="block text-slate-500 text-xs font-semibold uppercase tracking-wider">Duration:</span>
-                        <p id="resDuration" class="font-medium text-slate-900 mt-0.5">-</p>
+                        <span class="block text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider">Duration:</span>
+                        <p id="resDuration" class="font-medium text-slate-900 dark:text-white mt-0.5">-</p>
                     </div>
                     <div>
-                        <span class="block text-slate-500 text-xs font-semibold uppercase tracking-wider">Uploader:</span>
-                        <p id="resUploader" class="font-medium text-slate-900 mt-0.5">-</p>
+                        <span class="block text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider">Uploader:</span>
+                        <p id="resUploader" class="font-medium text-slate-900 dark:text-white mt-0.5">-</p>
                     </div>
                     <div>
-                        <span class="block text-slate-500 text-xs font-semibold uppercase tracking-wider">Views:</span>
-                        <p id="resViews" class="font-medium text-slate-900 mt-0.5">-</p>
+                        <span class="block text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider">Views:</span>
+                        <p id="resViews" class="font-medium text-slate-900 dark:text-white mt-0.5">-</p>
                     </div>
                 </div>
 
-                <a id="resDownloadBtn" href="#" target="_blank" download class="w-full py-3 bg-[#059669] hover:bg-emerald-700 text-white font-semibold rounded-xl transition-all flex items-center justify-center gap-2 shadow">
-                    <i data-lucide="download" class="w-5 h-5"></i>
-                    <span>Download Now</span>
-                </a>
+                <!-- Action Buttons: Direct Download + Generate Another -->
+                <div class="space-y-2 pt-2">
+                    <button id="resDownloadBtn" class="w-full py-3 bg-[#059669] hover:bg-emerald-700 text-white font-semibold rounded-xl transition-all flex items-center justify-center gap-2 shadow">
+                        <i data-lucide="download" class="w-5 h-5"></i>
+                        <span>Download</span>
+                    </button>
+                    
+                    <button id="generateAnotherBtn" class="w-full py-2.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-white font-medium rounded-xl transition-all flex items-center justify-center gap-2">
+                        <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                        <span>Generate Another</span>
+                    </button>
+                </div>
             </div>
         </div>
 
         <!-- Global Counter Card -->
-        <div class="mt-6 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between">
+        <div class="mt-6 bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-700 shadow-sm flex items-center justify-between">
             <div class="flex items-center gap-3.5">
-                <div class="w-10 h-10 bg-indigo-50 text-[#5850ec] rounded-xl flex items-center justify-center">
+                <div class="w-10 h-10 bg-indigo-50 dark:bg-indigo-950/50 text-[#5850ec] rounded-xl flex items-center justify-center">
                     <i data-lucide="trending-up" class="w-5 h-5"></i>
                 </div>
                 <div>
                     <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Downloads</span>
-                    <h4 id="downloadCounter" class="text-2xl font-extrabold text-slate-900 leading-tight">...</h4>
+                    <h4 id="downloadCounter" class="text-2xl font-extrabold text-slate-900 dark:text-white leading-tight">...</h4>
                 </div>
             </div>
-            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
                 <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                 Live
             </span>
         </div>
 
-        <!-- App Features Showcase Section -->
-        <div class="mt-6 space-y-4">
-            <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm text-center">
-                <div class="w-10 h-10 mx-auto mb-3 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
-                    <i data-lucide="zap" class="w-5 h-5 fill-blue-600"></i>
-                </div>
-                <h3 class="font-bold text-slate-900 text-lg">Fast & Reliable</h3>
-                <p class="text-slate-500 text-sm mt-1">Built with FastAPI for high performance video processing</p>
-            </div>
-
-            <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm text-center">
-                <div class="w-10 h-10 mx-auto mb-3 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center">
-                    <i data-lucide="settings" class="w-5 h-5"></i>
-                </div>
-                <h3 class="font-bold text-slate-900 text-lg">Multiple Qualities</h3>
-                <p class="text-slate-500 text-sm mt-1">Support for 360p, 720p, 1080p, best, and worst quality</p>
-            </div>
-
-            <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm text-center">
-                <div class="w-10 h-10 mx-auto mb-3 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center">
-                    <i data-lucide="shield" class="w-5 h-5 fill-purple-600 text-purple-600"></i>
-                </div>
-                <h3 class="font-bold text-slate-900 text-lg">Rate Limited</h3>
-                <p class="text-slate-500 text-sm mt-1">Built-in protection against abuse with proper error handling</p>
-            </div>
-        </div>
-
     </main>
 
     <!-- Footer -->
-    <footer class="py-6 text-center text-xs text-slate-500 space-y-3">
-        <p>© 2025 | made in ceylon with <span class="text-red-500">❤️</span> by <a href="#" class="text-blue-600 hover:underline">sh13y</a></p>
-        <p class="text-slate-400">Licensed under WPFTR</p>
-        <div class="flex items-center justify-center gap-4 text-slate-600 pt-1">
-            <a href="#" class="hover:text-slate-900"><i data-lucide="github" class="w-5 h-5"></i></a>
-            <a href="#" class="hover:text-slate-900"><i data-lucide="file-text" class="w-5 h-5"></i></a>
-        </div>
+    <footer class="py-6 text-center text-xs text-slate-500 dark:text-slate-400 space-y-3">
+        <p>© 2026 | Powered by <a href="#" class="text-blue-600 font-bold hover:underline">Jepong Devxyz</a></p>
     </footer>
 
     <script>
         lucide.createIcons();
 
-        // Render Python Backend Endpoint URL
         const RENDER_BACKEND_URL = 'https://jepongdevxyz-facebook.onrender.com/api/download';
+        let currentDownloadUrl = '';
+        let currentTitle = '';
+        let currentSelectedFormat = 'mp4';
 
-        // Counter Load & Increment Functions (Vercel Serverless Endpoint)
+        // Toast Handler
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toastTitle').innerText = message;
+            toast.classList.remove('translate-y-[-150%]', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-[-150%]', 'opacity-0');
+            }, 4000);
+        }
+
         async function loadGlobalCounter() {
             try {
                 const res = await fetch('/api/counter');
@@ -205,8 +224,6 @@
                 if (data.status === 'success') {
                     const counterEl = document.getElementById('downloadCounter');
                     counterEl.innerText = Number(data.count).toLocaleString();
-                    counterEl.classList.add('text-blue-600', 'scale-105');
-                    setTimeout(() => counterEl.classList.remove('text-blue-600', 'scale-105'), 300);
                 }
             } catch (e) {
                 console.error('Failed to increment counter:', e);
@@ -215,19 +232,19 @@
 
         loadGlobalCounter();
 
-        // Quality Option Active Style Handler
+        // Quality Active Styles
         const cards = document.querySelectorAll('.quality-card');
         cards.forEach(card => {
             const radio = card.querySelector('input[type="radio"]');
             function updateStyle() {
-                cards.forEach(c => c.classList.remove('border-blue-600', 'bg-blue-50/30'));
-                if (radio.checked) card.classList.add('border-blue-600', 'bg-blue-50/30');
+                cards.forEach(c => c.classList.remove('border-blue-600', 'bg-blue-50/30', 'dark:bg-blue-900/20'));
+                if (radio.checked) card.classList.add('border-blue-600', 'bg-blue-50/30', 'dark:bg-blue-900/20');
             }
             radio.addEventListener('change', updateStyle);
             if (radio.checked) updateStyle();
         });
 
-        // Form Submission Handler
+        // Form Submit
         document.getElementById('downloadForm').addEventListener('submit', async (e) => {
             e.preventDefault();
 
@@ -238,12 +255,17 @@
             const urlInput = document.getElementById('videoUrl').value;
             const qualitySelected = document.querySelector('input[name="quality"]:checked').value;
 
+            currentSelectedFormat = qualitySelected === 'mp3' ? 'mp3' : 'mp4';
+
             errorState.classList.add('hidden');
             successState.classList.add('hidden');
             loadingState.classList.remove('hidden');
 
             submitBtn.disabled = true;
-            submitBtn.innerHTML = `<div class="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div> Processing...`;
+            submitBtn.innerHTML = `
+                <div class="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                <span>Processing...</span>
+            `;
 
             try {
                 const res = await fetch(RENDER_BACKEND_URL, {
@@ -255,20 +277,30 @@
                 const data = await res.json();
 
                 if (res.ok && data.status === 'success') {
+                    currentDownloadUrl = data.download_url;
+                    currentTitle = data.video_info.title || 'facebook_download';
+
                     document.getElementById('resTitle').innerText = data.video_info.title || 'Facebook Video';
                     document.getElementById('resDuration').innerText = data.video_info.duration || 'N/A';
                     document.getElementById('resUploader').innerText = data.video_info.uploader || 'N/A';
                     document.getElementById('resViews').innerText = data.video_info.view_count ? Number(data.video_info.view_count).toLocaleString() : 'N/A';
-                    document.getElementById('resDownloadBtn').href = data.download_url;
+
+                    const thumbEl = document.getElementById('resThumbnail');
+                    if (data.video_info.thumbnail) {
+                        thumbEl.src = data.video_info.thumbnail;
+                        document.getElementById('previewContainer').classList.remove('hidden');
+                    } else {
+                        document.getElementById('previewContainer').classList.add('hidden');
+                    }
 
                     successState.classList.remove('hidden');
                     await incrementGlobalCounter();
                 } else {
-                    document.getElementById('errorMessage').innerText = data.message || 'Failed to extract video information: This video is private or not available for download.';
+                    document.getElementById('errorMessage').innerText = data.message || 'Failed to extract video information.';
                     errorState.classList.remove('hidden');
                 }
             } catch (err) {
-                document.getElementById('errorMessage').innerText = 'Failed to extract video information: Server connection issue or Render cold start.';
+                document.getElementById('errorMessage').innerText = 'Failed to extract video information: Server connection issue.';
                 errorState.classList.remove('hidden');
             } finally {
                 loadingState.classList.add('hidden');
@@ -276,6 +308,40 @@
                 submitBtn.innerHTML = `<i data-lucide="download" class="w-5 h-5"></i><span>Download Video</span>`;
                 lucide.createIcons();
             }
+        });
+
+        // Direct Download without Opening New Tab
+        document.getElementById('resDownloadBtn').addEventListener('click', async () => {
+            if (!currentDownloadUrl) return;
+
+            showToast('Downloading...');
+
+            try {
+                const response = await fetch(currentDownloadUrl);
+                const blob = await response.blob();
+                const blobUrl = URL.createObjectURL(blob);
+                
+                const link = document.createElement('a');
+                link.href = blobUrl;
+                link.download = `${currentTitle.replace(/[^a-zA-Z0-9]/g, "_")}.${currentSelectedFormat}`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(blobUrl);
+            } catch (e) {
+                // Fallback kung may CORS restriction ang direct file URL
+                const link = document.createElement('a');
+                link.href = currentDownloadUrl;
+                link.download = `${currentTitle}.${currentSelectedFormat}`;
+                link.click();
+            }
+        });
+
+        // Generate Another Action
+        document.getElementById('generateAnotherBtn').addEventListener('click', () => {
+            document.getElementById('videoUrl').value = '';
+            document.getElementById('successState').classList.add('hidden');
+            document.getElementById('videoUrl').focus();
         });
     </script>
 </body>
