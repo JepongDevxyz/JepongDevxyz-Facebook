@@ -1,11 +1,12 @@
 {
-  "name": "jepongdevxyz-facebook-downloader",
+  "name": "fb-video-downloader",
   "version": "1.0.0",
   "type": "module",
   "scripts": {
     "start": "node api/download.js"
   },
   "dependencies": {
+    "@upstash/redis": "^1.28.4",
     "axios": "^1.6.0",
     "cheerio": "^1.0.0-rc.12"
   }
