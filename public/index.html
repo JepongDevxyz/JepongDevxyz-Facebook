@@ -182,12 +182,15 @@
     <script>
         lucide.createIcons();
 
-        // Counter Load & Increment Functions
+        // Render Python Backend Endpoint URL
+        const RENDER_BACKEND_URL = 'https://jepongdevxyz-facebook.onrender.com/api/download';
+
+        // Counter Load & Increment Functions (Vercel Serverless Endpoint)
         async function loadGlobalCounter() {
             try {
                 const res = await fetch('/api/counter');
                 const data = await res.json();
-                if(data.status === 'success') {
+                if (data.status === 'success') {
                     document.getElementById('downloadCounter').innerText = Number(data.count).toLocaleString();
                 }
             } catch (e) {
@@ -199,7 +202,7 @@
             try {
                 const res = await fetch('/api/counter', { method: 'POST' });
                 const data = await res.json();
-                if(data.status === 'success') {
+                if (data.status === 'success') {
                     const counterEl = document.getElementById('downloadCounter');
                     counterEl.innerText = Number(data.count).toLocaleString();
                     counterEl.classList.add('text-blue-600', 'scale-105');
@@ -218,10 +221,10 @@
             const radio = card.querySelector('input[type="radio"]');
             function updateStyle() {
                 cards.forEach(c => c.classList.remove('border-blue-600', 'bg-blue-50/30'));
-                if(radio.checked) card.classList.add('border-blue-600', 'bg-blue-50/30');
+                if (radio.checked) card.classList.add('border-blue-600', 'bg-blue-50/30');
             }
             radio.addEventListener('change', updateStyle);
-            if(radio.checked) updateStyle();
+            if (radio.checked) updateStyle();
         });
 
         // Form Submission Handler
@@ -243,7 +246,7 @@
             submitBtn.innerHTML = `<div class="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div> Processing...`;
 
             try {
-                const res = await fetch('/api/download', {
+                const res = await fetch(RENDER_BACKEND_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ url: urlInput, quality: qualitySelected })
@@ -252,10 +255,10 @@
                 const data = await res.json();
 
                 if (res.ok && data.status === 'success') {
-                    document.getElementById('resTitle').innerText = data.video_info.title;
-                    document.getElementById('resDuration').innerText = data.video_info.duration;
-                    document.getElementById('resUploader').innerText = data.video_info.uploader;
-                    document.getElementById('resViews').innerText = Number(data.video_info.view_count).toLocaleString();
+                    document.getElementById('resTitle').innerText = data.video_info.title || 'Facebook Video';
+                    document.getElementById('resDuration').innerText = data.video_info.duration || 'N/A';
+                    document.getElementById('resUploader').innerText = data.video_info.uploader || 'N/A';
+                    document.getElementById('resViews').innerText = data.video_info.view_count ? Number(data.video_info.view_count).toLocaleString() : 'N/A';
                     document.getElementById('resDownloadBtn').href = data.download_url;
 
                     successState.classList.remove('hidden');
@@ -265,7 +268,7 @@
                     errorState.classList.remove('hidden');
                 }
             } catch (err) {
-                document.getElementById('errorMessage').innerText = 'Failed to extract video information: Server connection issue.';
+                document.getElementById('errorMessage').innerText = 'Failed to extract video information: Server connection issue or Render cold start.';
                 errorState.classList.remove('hidden');
             } finally {
                 loadingState.classList.add('hidden');
