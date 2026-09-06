@@ -1,107 +1,60 @@
-import axios from 'axios';
-
-// Upstash Redis Helper
-async function upstashRedis(command, ...args) {
-  const url = process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
-
-  if (!url || !token) return null;
-
-  try {
-    const res = await fetch(`${url}/${command}/${args.join('/')}`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    const data = await res.json();
-    return data.result;
-  } catch (err) {
-    console.error('Upstash Error:', err);
-    return null;
-  }
-}
+import ytDlp from 'yt-dlp-exec';
 
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-
-  if (req.method === 'GET') {
-    const count = await upstashRedis('get', 'fb_download_count');
-    return res.status(200).json({ success: true, count: Number(count || 0) });
-  }
-
   if (req.method !== 'POST') {
-    return res.status(405).json({ success: false, message: 'Method Not Allowed' });
+    return res.status(405).json({ message: 'Method Not Allowed' });
   }
 
-  const { url } = req.body || {};
+  const { url, quality } = req.body || {};
 
-  if (!url || (!url.includes('facebook.com') && !url.includes('fb.watch'))) {
-    return res.status(400).json({ success: false, message: 'Maglagay ng valid na Facebook video URL.' });
+  if (!url || !url.includes('facebook.com')) {
+    return res.status(400).json({
+      status: 'error',
+      message: 'Failed to extract video information: Please provide a valid Facebook video URL.'
+    });
   }
 
   try {
-    // Primary Engine: Public Cobalt Instances (Most Reliable for FB/Reels)
-    const instances = [
-      'https://cobalt-api.kwiatek.xyz',
-      'https://api.cobalt.tools',
-      'https://cobalt.xy2.dev'
-    ];
+    // Map UI quality options to yt-dlp format selection
+    let formatFilter = 'bestvideo+bestaudio/best';
+    if (quality === '1080p') formatFilter = 'bestvideo[height<=1080]+bestaudio/best[height<=1080]';
+    if (quality === '720p') formatFilter = 'bestvideo[height<=720]+bestaudio/best[height<=720]';
+    if (quality === '360p') formatFilter = 'bestvideo[height<=360]+bestaudio/best[height<=360]';
+    if (quality === 'worst') formatFilter = 'worstvideo+worstaudio/worst';
 
-    let videoUrl = null;
+    // Extract metadata gamit ang yt-dlp
+    const output = await ytDlp(url, {
+      dumpSingleJson: true,
+      noWarnings: true,
+      noCallHome: true,
+      noCheckCertificate: true,
+      format: formatFilter,
+      preferFreeFormats: true,
+      youtubeSkipDashManifest: true
+    });
 
-    for (const instance of instances) {
-      try {
-        const response = await axios.post(
-          instance,
-          { url: url, videoQuality: 'max' },
-          {
-            headers: {
-              'Accept': 'application/json',
-              'Content-Type': 'application/json',
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
-            },
-            timeout: 8000
-          }
-        );
-
-        if (response.data && response.data.url) {
-          videoUrl = response.data.url;
-          break;
-        }
-      } catch (e) {
-        continue; // Subukan ang kasunod na instance kapag nag-fail
-      }
-    }
-
-    if (!videoUrl) {
-      return res.status(404).json({
-        success: false,
-        message: 'Hindi ma-extract ang video. Siguraduhing public video o reel ang link at hindi private group.'
-      });
-    }
-
-    // Increment download counter
-    const totalDownloads = await upstashRedis('incr', 'fb_download_count');
+    // Formatting duration (Seconds to Min:Sec string)
+    const durationSec = output.duration || 0;
+    const minutes = Math.floor(durationSec / 60);
+    const seconds = Math.floor(durationSec % 60);
+    const formattedDuration = `${minutes}:${seconds < 10 ? '0' : ''}${seconds} Min`;
 
     return res.status(200).json({
-      success: true,
-      title: 'Facebook_Video',
-      thumbnail: '',
-      downloads: {
-        hd: videoUrl,
-        sd: videoUrl
+      status: 'success',
+      video_info: {
+        title: output.title || output.fulltitle || 'Facebook Video',
+        duration: formattedDuration,
+        uploader: output.uploader || output.webpage_url_domain || 'Facebook User',
+        view_count: output.view_count || 0
       },
-      totalDownloads: totalDownloads || 0
+      download_url: output.url || (output.formats && output.formats[0]?.url) || url
     });
 
   } catch (error) {
+    console.error('yt-dlp Error:', error);
     return res.status(500).json({
-      success: false,
-      message: 'Server Error: ' + (error.message || 'Hindi ma-process ang request.')
+      status: 'error',
+      message: 'Failed to extract video information: This video is private or not available for download.'
     });
   }
 }
