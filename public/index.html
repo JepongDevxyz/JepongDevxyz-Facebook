@@ -163,10 +163,12 @@ async function fetchVideo() {
       btnGroup.innerHTML = linksHTML;
       resultBox.style.display = 'block';
     } else {
-      alert(data.message || 'May error sa pag-extract ng video.');
+      // Ipakita ang totoong error mula sa API response
+      alert("API Error: " + (data.message || 'May error sa pag-extract ng video.'));
     }
   } catch (err) {
-    alert('Failed to connect to the server. Please check your network connection.');
+    // Ipakita ang eksaktong JS exception message
+    alert('Request Failed: ' + err.message);
   } finally {
     btnFetch.disabled = false;
     spinner.style.display = 'none';
