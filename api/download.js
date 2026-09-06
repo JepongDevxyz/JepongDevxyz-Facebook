@@ -1,14 +1,27 @@
 import axios from 'axios';
 import * as cheerio from 'cheerio';
+import { Redis } from '@upstash/redis';
+
+// Initialize Upstash Redis mula sa Vercel Environment Variables
+const redis = Redis.fromEnv();
 
 export default async function handler(req, res) {
-  // CORS Headers
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
+  }
+
+  // GET Request: Kunin ang current count (nagsisimula sa 0)
+  if (req.method === 'GET') {
+    try {
+      const count = (await redis.get('fb_download_count')) || 0;
+      return res.status(200).json({ success: true, count: Number(count) });
+    } catch (err) {
+      return res.status(200).json({ success: true, count: 0 });
+    }
   }
 
   if (req.method !== 'POST') {
@@ -34,13 +47,12 @@ export default async function handler(req, res) {
     const html = response.data;
     const $ = cheerio.load(html);
 
-    // Extract Title & Thumbnail
     const rawTitle = $('meta[property="og:title"]').attr('content') || 
                      $('title').text() || 
                      'Facebook_Video';
     const thumbnail = $('meta[property="og:image"]').attr('content') || '';
 
-    // Regex match para sa HD/SD URLs
+    // Regex match para sa HD at SD URLs
     const hdMatch = html.match(/"browser_native_hd_url":"([^"]+)"/) || 
                     html.match(/hd_src:"([^"]+)"/) ||
                     html.match(/"playable_url_quality_hd":"([^"]+)"/);
@@ -61,6 +73,16 @@ export default async function handler(req, res) {
       });
     }
 
+    // Mag-increment sa Upstash Redis (mula 0 papuntang 1, 2, 3...)
+    let totalDownloads = 0;
+    try {
+      totalDownloads = await redis.incr('fb_download_count');
+    } catch (redisErr) {
+      console.error('Redis Increment Error:', redisErr);
+      const current = await redis.get('fb_download_count');
+      totalDownloads = current ? Number(current) : 0;
+    }
+
     const cleanTitle = rawTitle.replace(/[^\w\s-]/gi, '').trim() || 'Facebook_Video';
 
     return res.status(200).json({
@@ -70,7 +92,8 @@ export default async function handler(req, res) {
       downloads: {
         hd: hdUrl,
         sd: sdUrl || hdUrl
-      }
+      },
+      totalDownloads
     });
 
   } catch (error) {
