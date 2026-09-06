@@ -3,39 +3,79 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Facebook Video Downloader</title>
+  <title>FB Video Downloader</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
-    body { background: #f0f2f5; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
-    .card { background: #ffffff; width: 100%; max-width: 480px; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); }
-    .header { text-align: center; margin-bottom: 20px; }
-    .header h1 { font-size: 22px; color: #1877f2; margin-bottom: 6px; }
-    .header p { font-size: 13px; color: #65676b; }
-    
-    .counter-badge { display: inline-block; background: #e7f3ff; color: #1877f2; font-size: 12px; font-weight: 700; padding: 4px 12px; border-radius: 20px; margin-top: 8px; }
+    /* CSS Variables para sa Automatic Theme Sync */
+    :root {
+      --bg-color: #f8fafc;
+      --card-bg: #ffffff;
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --border-color: #e2e8f0;
+      --input-bg: #f1f5f9;
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --badge-bg: rgba(37, 99, 235, 0.1);
+      --badge-text: #2563eb;
+      --btn-hd: #16a34a;
+      --btn-hd-hover: #15803d;
+      --btn-sd: #2563eb;
+      --btn-sd-hover: #1d4ed8;
+      --btn-audio: #d97706;
+      --btn-audio-hover: #b45309;
+      --shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01);
+    }
 
-    .input-box { display: flex; gap: 8px; margin-bottom: 20px; }
-    input { flex: 1; padding: 12px 14px; border: 1px solid #ccd0d5; border-radius: 8px; font-size: 14px; outline: none; }
-    input:focus { border-color: #1877f2; }
-    button { background: #1877f2; color: #fff; border: none; padding: 12px 18px; border-radius: 8px; font-weight: bold; font-size: 14px; cursor: pointer; transition: background 0.2s; }
-    button:hover { background: #166fe5; }
-    button:disabled { background: #90bbf8; cursor: not-allowed; }
+    /* Auto Dark Mode Sync batay sa Mobile/System Settings */
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg-color: #0f172a;
+        --card-bg: #1e293b;
+        --text-main: #f8fafc;
+        --text-muted: #94a3b8;
+        --border-color: #334155;
+        --input-bg: #0f172a;
+        --primary: #3b82f6;
+        --primary-hover: #60a5fa;
+        --badge-bg: rgba(59, 130, 246, 0.15);
+        --badge-text: #60a5fa;
+        --shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.2);
+      }
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif; transition: background-color 0.3s, color 0.3s; }
+    body { background-color: var(--bg-color); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; color: var(--text-main); }
     
-    .spinner { display: none; width: 32px; height: 32px; border: 3px solid #f3f3f3; border-top: 3px solid #1877f2; border-radius: 50%; margin: 20px auto; animation: spin 0.8s linear infinite; }
+    .card { background-color: var(--card-bg); width: 100%; max-width: 460px; padding: 32px 28px; border-radius: 20px; box-shadow: var(--shadow); border: 1px solid var(--border-color); }
+    
+    .header { text-align: center; margin-bottom: 24px; }
+    .header h1 { font-size: 24px; font-weight: 700; color: var(--text-main); letter-spacing: -0.5px; margin-bottom: 6px; }
+    .header p { font-size: 14px; color: var(--text-muted); }
+    
+    .counter-badge { display: inline-flex; align-items: center; gap: 6px; background-color: var(--badge-bg); color: var(--badge-text); font-size: 13px; font-weight: 600; padding: 6px 14px; border-radius: 99px; margin-top: 12px; }
+
+    .input-box { display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; }
+    input { width: 100%; padding: 14px 16px; background-color: var(--input-bg); border: 1.5px solid var(--border-color); border-radius: 12px; font-size: 14px; color: var(--text-main); outline: none; transition: border-color 0.2s; }
+    input:focus { border-color: var(--primary); }
+    input::placeholder { color: var(--text-muted); }
+    
+    button { width: 100%; background-color: var(--primary); color: #ffffff; border: none; padding: 14px; border-radius: 12px; font-weight: 600; font-size: 15px; cursor: pointer; transition: all 0.2s; }
+    button:hover { background-color: var(--primary-hover); }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+    
+    .spinner { display: none; width: 32px; height: 32px; border: 3px solid var(--border-color); border-top: 3px solid var(--primary); border-radius: 50%; margin: 24px auto; animation: spin 0.8s linear infinite; }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-    .result { display: none; border-top: 1px solid #e4e6eb; padding-top: 20px; margin-top: 10px; }
-    .thumb { width: 100%; border-radius: 8px; object-fit: cover; max-height: 240px; margin-bottom: 12px; background: #e4e6eb; }
-    .title { font-size: 14px; font-weight: 600; color: #050505; margin-bottom: 15px; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .result { display: none; border-top: 1px solid var(--border-color); padding-top: 24px; margin-top: 12px; }
+    .thumb { width: 100%; border-radius: 12px; object-fit: cover; max-height: 220px; margin-bottom: 14px; background-color: var(--input-bg); border: 1px solid var(--border-color); }
+    .title { font-size: 14px; font-weight: 600; color: var(--text-main); margin-bottom: 18px; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
     
     .download-btns { display: flex; flex-direction: column; gap: 10px; }
-    .dl-btn { text-decoration: none; display: flex; justify-content: center; align-items: center; padding: 10px; border-radius: 6px; font-size: 14px; font-weight: 600; color: #fff; text-align: center; }
-    .btn-hd { background: #42b72a; }
-    .btn-hd:hover { background: #36a420; }
-    .btn-sd { background: #1877f2; }
-    .btn-sd:hover { background: #166fe5; }
-    .btn-audio { background: #f5a623; }
-    .btn-audio:hover { background: #e0961f; }
+    .dl-btn { text-decoration: none; display: flex; justify-content: center; align-items: center; padding: 12px; border-radius: 10px; font-size: 14px; font-weight: 600; color: #ffffff; text-align: center; transition: opacity 0.2s; }
+    .dl-btn:hover { opacity: 0.9; }
+    .btn-hd { background-color: var(--btn-hd); }
+    .btn-sd { background-color: var(--btn-sd); }
+    .btn-audio { background-color: var(--btn-audio); }
   </style>
 </head>
 <body>
@@ -43,7 +83,7 @@
 <div class="card">
   <div class="header">
     <h1>FB Video Downloader</h1>
-    <p>I-paste ang Facebook video/reel link para ma-download agad.</p>
+    <p>I-paste ang Facebook video link para ma-download agad.</p>
     <div class="counter-badge" id="counterBadge">Total Downloads: 0</div>
   </div>
 
@@ -62,7 +102,7 @@
 </div>
 
 <script>
-// Load count sa page load (0 kung bago)
+// Load count sa page load
 async function loadCounter() {
   try {
     const res = await fetch('/api/download');
