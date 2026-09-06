@@ -1,15 +1,22 @@
 import axios from 'axios';
-import * as cheerio from 'cheerio';
-import { Redis } from '@upstash/redis';
 
-// Safe Redis Initialization
-let redis = null;
-try {
-  if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
-    redis = Redis.fromEnv();
+// Native Upstash REST Helper
+async function upstashRedis(command, ...args) {
+  const url = process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+
+  if (!url || !token) return null;
+
+  try {
+    const res = await fetch(`${url}/${command}/${args.join('/')}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const data = await res.json();
+    return data.result;
+  } catch (err) {
+    console.error('Upstash Error:', err);
+    return null;
   }
-} catch (e) {
-  console.error("Redis init error:", e);
 }
 
 export default async function handler(req, res) {
@@ -21,17 +28,9 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  // GET Request: Safe Counter Fetch
   if (req.method === 'GET') {
-    try {
-      if (redis) {
-        const count = (await redis.get('fb_download_count')) || 0;
-        return res.status(200).json({ success: true, count: Number(count) });
-      }
-      return res.status(200).json({ success: true, count: 0 });
-    } catch (err) {
-      return res.status(200).json({ success: true, count: 0 });
-    }
+    const count = await upstashRedis('get', 'fb_download_count');
+    return res.status(200).json({ success: true, count: Number(count || 0) });
   }
 
   if (req.method !== 'POST') {
@@ -45,70 +44,46 @@ export default async function handler(req, res) {
   }
 
   try {
-    const response = await axios.get(url, {
+    // External API Scraper (SnapSave-based endpoint)
+    const response = await axios.get(`https://api.vytal.to/fb?url=${encodeURIComponent(url)}`, {
+      timeout: 12000,
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Sec-Fetch-Mode': 'navigate'
-      },
-      timeout: 10000
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
+      }
     });
 
-    const html = response.data;
-    const $ = cheerio.load(html);
+    const data = response.data;
 
-    const rawTitle = $('meta[property="og:title"]').attr('content') || 
-                     $('title').text() || 
-                     'Facebook_Video';
-    const thumbnail = $('meta[property="og:image"]').attr('content') || '';
-
-    const hdMatch = html.match(/"browser_native_hd_url":"([^"]+)"/) || 
-                    html.match(/hd_src:"([^"]+)"/) ||
-                    html.match(/"playable_url_quality_hd":"([^"]+)"/);
-
-    const sdMatch = html.match(/"browser_native_sd_url":"([^"]+)"/) || 
-                    html.match(/sd_src:"([^"]+)"/) ||
-                    html.match(/"playable_url":"([^"]+)"/);
-
-    const cleanUrl = (str) => str ? str.replace(/\\/g, '').replace(/&amp;/g, '&') : null;
-
-    const hdUrl = hdMatch ? cleanUrl(hdMatch[1]) : null;
-    const sdUrl = sdMatch ? cleanUrl(sdMatch[1]) : null;
-
-    if (!hdUrl && !sdUrl) {
-      return res.status(404).json({
-        success: false,
-        message: 'Hindi makuha ang video. Maaaring naka-private, may restriction, o pinalitan ng Facebook ang structure.'
-      });
-    }
-
-    // Safe Increment sa Redis
-    let totalDownloads = 0;
-    if (redis) {
-      try {
-        totalDownloads = await redis.incr('fb_download_count');
-      } catch (redisErr) {
-        console.error('Redis Increment Error:', redisErr);
+    if (!data || !data.downloads || (!data.downloads.hd && !data.downloads.sd)) {
+      // Fallback extraction query kung may ibang format
+      if (data && (data.hd || data.sd)) {
+        data.downloads = { hd: data.hd, sd: data.sd };
+      } else {
+        return res.status(404).json({
+          success: false,
+          message: 'Hindi ma-extract ang video. Siguraduhing Public ang post at hindi Private group video.'
+        });
       }
     }
 
-    const cleanTitle = rawTitle.replace(/[^\w\s-]/gi, '').trim() || 'Facebook_Video';
+    // Increment count via REST
+    const totalDownloads = await upstashRedis('incr', 'fb_download_count');
 
     return res.status(200).json({
       success: true,
-      title: cleanTitle,
-      thumbnail: thumbnail,
+      title: data.title || 'Facebook_Video',
+      thumbnail: data.thumbnail || '',
       downloads: {
-        hd: hdUrl,
-        sd: sdUrl || hdUrl
+        hd: data.downloads.hd || null,
+        sd: data.downloads.sd || data.downloads.hd
       },
-      totalDownloads
+      totalDownloads: totalDownloads || 0
     });
 
   } catch (error) {
     return res.status(500).json({
       success: false,
-      message: 'Failed to fetch video details: ' + (error.response?.statusText || error.message)
+      message: 'Extraction Error: ' + (error.response?.data?.message || error.message)
     });
   }
 }
