@@ -1,84 +1,58 @@
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-import yt_dlp
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+from app.models import VideoRequest, VideoResponse
+from app.services.video_service import VideoService
+import os
 
-app = FastAPI()
+app = FastAPI(title="Facebook Video Downloader API", version="1.0.0")
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-class DownloadRequest(BaseModel):
-    url: str
-    quality: str = "best"
+# Mount static folder kung saan nakalagay ang frontend web interface mo
+if os.path.exists("static"):
+    app.mount("/static", StaticFiles(directory="static"), name="static")
 
 @app.get("/")
-def read_root():
-    return {"status": "online", "message": "Facebook Downloader API is running"}
+async def read_index():
+    if os.path.exists("static/index.html"):
+        return FileResponse("static/index.html")
+    return {"message": "API is running. Please check /docs for documentation."}
 
-@app.post("/api/download")
-async def extract_video(payload: DownloadRequest):
-    url = payload.url
-    quality = payload.quality
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy"}
 
-    if not url or ("facebook.com" not in url and "fb.watch" not in url):
-        return {
-            "status": "error",
-            "message": "Please provide a valid Facebook video URL."
-        }
-
-    # Format mapping
-    if quality == "mp3":
-        format_filter = "bestaudio/best"
-    elif quality == "1080p":
-        format_filter = "bestvideo[height<=1080]+bestaudio/best[height<=1080]"
-    elif quality == "720p":
-        format_filter = "bestvideo[height<=720]+bestaudio/best[height<=720]"
-    elif quality == "360p":
-        format_filter = "bestvideo[height<=360]+bestaudio/best[height<=360]"
-    elif quality == "worst":
-        format_filter = "worstvideo+worstaudio/worst"
-    else:
-        format_filter = "bestvideo+bestaudio/best"
-
-    ydl_opts = {
-        'format': format_filter,
-        'quiet': True,
-        'no_warnings': True,
-        'nocheckcertificate': True,
-    }
-
+@app.post("/info", response_model=VideoResponse)
+async def video_info(data: VideoRequest):
     try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=False)
-            
-            duration_sec = info.get('duration') or 0
-            minutes = int(duration_sec // 60)
-            seconds = int(duration_sec % 60)
-            formatted_duration = f"{minutes}:{seconds:02d} Min"
+        info = await VideoService.get_video_info(data.url)
+        return {
+            "status": "success",
+            "video_info": info,
+            "available_formats": ["360p", "720p", "1080p", "best", "worst"]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
-            download_url = info.get('url')
-            if not download_url and info.get('formats'):
-                download_url = info['formats'][-1].get('url')
-
-            return {
-                "status": "success",
-                "video_info": {
-                    "title": info.get('title') or info.get('fulltitle') or "Facebook Video",
-                    "duration": formatted_duration,
-                    "uploader": info.get('uploader') or "Facebook User",
-                    "view_count": info.get('view_count') or 0,
-                    "thumbnail": info.get('thumbnail')
-                },
-                "download_url": download_url or url
-            }
+@app.post("/download", response_model=VideoResponse)
+async def download_video(data: VideoRequest):
+    try:
+        result = await VideoService.get_download_url(data.url, data.quality)
+        download_link = result.pop("url", None)
+        return {
+            "status": "success",
+            "video_info": result,
+            "download_url": download_link,
+            "available_formats": ["360p", "720p", "1080p", "best", "worst"]
+        }
     except Exception as e:
         return {
             "status": "error",
-            "message": "Failed to extract video information: This video is private or not available for download."
+            "message": str(e),
+            "error_code": "INVALID_REQUEST"
         }
+
+@app.get("/qualities")
+async def get_qualities():
+    return {
+        "qualities": ["best", "worst", "360p", "720p", "1080p"]
+    }
