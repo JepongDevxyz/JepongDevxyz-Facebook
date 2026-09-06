@@ -1,180 +1,279 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>FB Video Downloader</title>
-  <style>
-    /* CSS Variables para sa Automatic Theme Sync */
-    :root {
-      --bg-color: #f8fafc;
-      --card-bg: #ffffff;
-      --text-main: #0f172a;
-      --text-muted: #64748b;
-      --border-color: #e2e8f0;
-      --input-bg: #f1f5f9;
-      --primary: #2563eb;
-      --primary-hover: #1d4ed8;
-      --badge-bg: rgba(37, 99, 235, 0.1);
-      --badge-text: #2563eb;
-      --btn-hd: #16a34a;
-      --btn-hd-hover: #15803d;
-      --btn-sd: #2563eb;
-      --btn-sd-hover: #1d4ed8;
-      --btn-audio: #d97706;
-      --btn-audio-hover: #b45309;
-      --shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01);
-    }
-
-    /* Auto Dark Mode Sync batay sa Mobile/System Settings */
-    @media (prefers-color-scheme: dark) {
-      :root {
-        --bg-color: #0f172a;
-        --card-bg: #1e293b;
-        --text-main: #f8fafc;
-        --text-muted: #94a3b8;
-        --border-color: #334155;
-        --input-bg: #0f172a;
-        --primary: #3b82f6;
-        --primary-hover: #60a5fa;
-        --badge-bg: rgba(59, 130, 246, 0.15);
-        --badge-text: #60a5fa;
-        --shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.2);
-      }
-    }
-
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif; transition: background-color 0.3s, color 0.3s; }
-    body { background-color: var(--bg-color); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; color: var(--text-main); }
-    
-    .card { background-color: var(--card-bg); width: 100%; max-width: 460px; padding: 32px 28px; border-radius: 20px; box-shadow: var(--shadow); border: 1px solid var(--border-color); }
-    
-    .header { text-align: center; margin-bottom: 24px; }
-    .header h1 { font-size: 24px; font-weight: 700; color: var(--text-main); letter-spacing: -0.5px; margin-bottom: 6px; }
-    .header p { font-size: 14px; color: var(--text-muted); }
-    
-    .counter-badge { display: inline-flex; align-items: center; gap: 6px; background-color: var(--badge-bg); color: var(--badge-text); font-size: 13px; font-weight: 600; padding: 6px 14px; border-radius: 99px; margin-top: 12px; }
-
-    .input-box { display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; }
-    input { width: 100%; padding: 14px 16px; background-color: var(--input-bg); border: 1.5px solid var(--border-color); border-radius: 12px; font-size: 14px; color: var(--text-main); outline: none; transition: border-color 0.2s; }
-    input:focus { border-color: var(--primary); }
-    input::placeholder { color: var(--text-muted); }
-    
-    button { width: 100%; background-color: var(--primary); color: #ffffff; border: none; padding: 14px; border-radius: 12px; font-weight: 600; font-size: 15px; cursor: pointer; transition: all 0.2s; }
-    button:hover { background-color: var(--primary-hover); }
-    button:disabled { opacity: 0.6; cursor: not-allowed; }
-    
-    .spinner { display: none; width: 32px; height: 32px; border: 3px solid var(--border-color); border-top: 3px solid var(--primary); border-radius: 50%; margin: 24px auto; animation: spin 0.8s linear infinite; }
-    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
-    .result { display: none; border-top: 1px solid var(--border-color); padding-top: 24px; margin-top: 12px; }
-    .thumb { width: 100%; border-radius: 12px; object-fit: cover; max-height: 220px; margin-bottom: 14px; background-color: var(--input-bg); border: 1px solid var(--border-color); }
-    .title { font-size: 14px; font-weight: 600; color: var(--text-main); margin-bottom: 18px; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-    
-    .download-btns { display: flex; flex-direction: column; gap: 10px; }
-    .dl-btn { text-decoration: none; display: flex; justify-content: center; align-items: center; padding: 12px; border-radius: 10px; font-size: 14px; font-weight: 600; color: #ffffff; text-align: center; transition: opacity 0.2s; }
-    .dl-btn:hover { opacity: 0.9; }
-    .btn-hd { background-color: var(--btn-hd); }
-    .btn-sd { background-color: var(--btn-sd); }
-    .btn-audio { background-color: var(--btn-audio); }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Facebook Video Downloader</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+    </style>
 </head>
-<body>
+<body class="bg-[#f8fafc] text-slate-800 min-h-screen flex flex-col justify-between antialiased">
 
-<div class="card">
-  <div class="header">
-    <h1>FB Video Downloader</h1>
-    <p>I-paste ang Facebook video link para ma-download agad.</p>
-    <div class="counter-badge" id="counterBadge">Total Downloads: 0</div>
-  </div>
+    <!-- Top Navigation Header -->
+    <header class="bg-[#5850ec] text-white py-4 px-6 flex items-center shadow-md">
+        <div class="max-w-4xl w-full mx-auto flex items-center gap-3">
+            <div class="bg-white/20 p-2 rounded-full flex items-center justify-center">
+                <i data-lucide="facebook" class="w-6 h-6 fill-white text-[#5850ec]"></i>
+            </div>
+            <h1 class="text-xl font-bold tracking-tight">Facebook Video Downloader</h1>
+        </div>
+    </header>
 
-  <div class="input-box">
-    <input type="url" id="fbUrl" placeholder="https://www.facebook.com/watch/?v=..." required />
-    <button id="btnFetch" onclick="fetchVideo()">Get Video</button>
-  </div>
+    <!-- Main Content Container -->
+    <main class="max-w-xl w-full mx-auto px-4 py-8 flex-grow">
+        
+        <!-- Hero Title Header -->
+        <div class="text-center mb-8">
+            <h2 class="text-3xl font-extrabold text-slate-900 tracking-tight">Download Facebook Videos</h2>
+            <p class="text-slate-500 text-sm mt-2">Enter a Facebook video URL and select your preferred quality</p>
+        </div>
 
-  <div class="spinner" id="spinner"></div>
+        <!-- Form Card -->
+        <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6 space-y-6">
+            <form id="downloadForm" class="space-y-6">
+                <!-- Input URL Field -->
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-2">Facebook Video URL</label>
+                    <div class="relative">
+                        <input type="url" id="videoUrl" required 
+                               placeholder="https://www.facebook.com/share/v/..." 
+                               class="w-full px-4 py-3 border border-slate-300 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#2563eb] focus:border-transparent transition-all pr-10 text-sm">
+                        <i data-lucide="link-2" class="w-5 h-5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2"></i>
+                    </div>
+                </div>
 
-  <div class="result" id="resultBox">
-    <img id="thumb" class="thumb" src="" alt="Video Thumbnail" />
-    <div id="videoTitle" class="title"></div>
-    <div class="download-btns" id="btnGroup"></div>
-  </div>
-</div>
+                <!-- Video Quality Radio Options Grid -->
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-2">Video Quality</label>
+                    <div class="grid grid-cols-2 gap-3">
+                        <label class="quality-card flex items-center justify-between p-3.5 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 transition-all">
+                            <span class="text-sm font-medium text-slate-700">Best</span>
+                            <input type="radio" name="quality" value="best" checked class="w-4 h-4 text-blue-600 focus:ring-blue-500">
+                        </label>
+                        <label class="quality-card flex items-center justify-between p-3.5 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 transition-all">
+                            <span class="text-sm font-medium text-slate-700">1080p</span>
+                            <input type="radio" name="quality" value="1080p" class="w-4 h-4 text-blue-600 focus:ring-blue-500">
+                        </label>
+                        <label class="quality-card flex items-center justify-between p-3.5 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 transition-all">
+                            <span class="text-sm font-medium text-slate-700">720p</span>
+                            <input type="radio" name="quality" value="720p" class="w-4 h-4 text-blue-600 focus:ring-blue-500">
+                        </label>
+                        <label class="quality-card flex items-center justify-between p-3.5 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 transition-all">
+                            <span class="text-sm font-medium text-slate-700">360p</span>
+                            <input type="radio" name="quality" value="360p" class="w-4 h-4 text-blue-600 focus:ring-blue-500">
+                        </label>
+                        <label class="quality-card flex items-center justify-between p-3.5 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 transition-all col-span-1">
+                            <span class="text-sm font-medium text-slate-700">Worst</span>
+                            <input type="radio" name="quality" value="worst" class="w-4 h-4 text-blue-600 focus:ring-blue-500">
+                        </label>
+                    </div>
+                </div>
 
-<script>
-// Load count sa page load
-async function loadCounter() {
-  try {
-    const res = await fetch('/api/download');
-    const data = await res.json();
-    if (data.success) {
-      document.getElementById('counterBadge').innerText = `Total Downloads: ${data.count.toLocaleString()}`;
-    }
-  } catch (err) {
-    document.getElementById('counterBadge').innerText = 'Total Downloads: 0';
-  }
-}
-loadCounter();
+                <!-- Submit Button -->
+                <button type="submit" id="submitBtn" class="w-full py-3.5 bg-[#2563eb] hover:bg-blue-700 text-white font-semibold rounded-xl shadow-md transition-all flex items-center justify-center gap-2">
+                    <i data-lucide="download" class="w-5 h-5"></i>
+                    <span>Download Video</span>
+                </button>
+            </form>
 
-async function fetchVideo() {
-  const urlInput = document.getElementById('fbUrl');
-  const btnFetch = document.getElementById('btnFetch');
-  const spinner = document.getElementById('spinner');
-  const resultBox = document.getElementById('resultBox');
-  const btnGroup = document.getElementById('btnGroup');
+            <!-- Loading Spinner State -->
+            <div id="loadingState" class="hidden text-center py-6 space-y-3">
+                <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-200 border-t-blue-600"></div>
+                <p class="text-slate-500 text-sm font-medium">Processing your video...</p>
+            </div>
 
-  const url = urlInput.value.trim();
-  if(!url) return alert('Paki-paste muna ang Facebook video URL.');
+            <!-- Error Box Container -->
+            <div id="errorState" class="hidden p-4 bg-red-50 border border-red-200 rounded-xl space-y-1">
+                <h4 class="text-red-700 font-bold text-base">Error</h4>
+                <p id="errorMessage" class="text-red-600 text-sm">Failed to extract video information: This video is private or not available for download.</p>
+            </div>
 
-  btnFetch.disabled = true;
-  spinner.style.display = 'block';
-  resultBox.style.display = 'none';
+            <!-- Success Box (Video Ready State) -->
+            <div id="successState" class="hidden p-5 bg-[#ecfdf5] border border-[#a7f3d0] rounded-xl space-y-4">
+                <h3 class="text-emerald-800 font-bold text-lg">Video Ready!</h3>
+                <div class="space-y-2 text-sm text-slate-700">
+                    <div>
+                        <span class="block text-slate-500 text-xs font-semibold uppercase tracking-wider">Title:</span>
+                        <p id="resTitle" class="font-medium text-slate-900 mt-0.5">-</p>
+                    </div>
+                    <div>
+                        <span class="block text-slate-500 text-xs font-semibold uppercase tracking-wider">Duration:</span>
+                        <p id="resDuration" class="font-medium text-slate-900 mt-0.5">-</p>
+                    </div>
+                    <div>
+                        <span class="block text-slate-500 text-xs font-semibold uppercase tracking-wider">Uploader:</span>
+                        <p id="resUploader" class="font-medium text-slate-900 mt-0.5">-</p>
+                    </div>
+                    <div>
+                        <span class="block text-slate-500 text-xs font-semibold uppercase tracking-wider">Views:</span>
+                        <p id="resViews" class="font-medium text-slate-900 mt-0.5">-</p>
+                    </div>
+                </div>
 
-  try {
-    const res = await fetch('/api/download', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url })
-    });
+                <a id="resDownloadBtn" href="#" target="_blank" download class="w-full py-3 bg-[#059669] hover:bg-emerald-700 text-white font-semibold rounded-xl transition-all flex items-center justify-center gap-2 shadow">
+                    <i data-lucide="download" class="w-5 h-5"></i>
+                    <span>Download Now</span>
+                </a>
+            </div>
+        </div>
 
-    const data = await res.json();
+        <!-- Global Counter Card -->
+        <div class="mt-6 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between">
+            <div class="flex items-center gap-3.5">
+                <div class="w-10 h-10 bg-indigo-50 text-[#5850ec] rounded-xl flex items-center justify-center">
+                    <i data-lucide="trending-up" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Downloads</span>
+                    <h4 id="downloadCounter" class="text-2xl font-extrabold text-slate-900 leading-tight">...</h4>
+                </div>
+            </div>
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                Live
+            </span>
+        </div>
 
-    if (data.success) {
-      document.getElementById('thumb').src = data.thumbnail || 'https://via.placeholder.com/480x270?text=No+Thumbnail';
-      document.getElementById('videoTitle').innerText = data.title;
+        <!-- App Features Showcase Section -->
+        <div class="mt-6 space-y-4">
+            <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm text-center">
+                <div class="w-10 h-10 mx-auto mb-3 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
+                    <i data-lucide="zap" class="w-5 h-5 fill-blue-600"></i>
+                </div>
+                <h3 class="font-bold text-slate-900 text-lg">Fast & Reliable</h3>
+                <p class="text-slate-500 text-sm mt-1">Built with FastAPI for high performance video processing</p>
+            </div>
 
-      if (data.totalDownloads !== undefined) {
-        document.getElementById('counterBadge').innerText = `Total Downloads: ${data.totalDownloads.toLocaleString()}`;
-      }
+            <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm text-center">
+                <div class="w-10 h-10 mx-auto mb-3 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center">
+                    <i data-lucide="settings" class="w-5 h-5"></i>
+                </div>
+                <h3 class="font-bold text-slate-900 text-lg">Multiple Qualities</h3>
+                <p class="text-slate-500 text-sm mt-1">Support for 360p, 720p, 1080p, best, and worst quality</p>
+            </div>
 
-      let linksHTML = '';
-      if (data.downloads.hd) {
-        linksHTML += `<a class="dl-btn btn-hd" href="${data.downloads.hd}" target="_blank" rel="noopener noreferrer" download="${data.title}_HD.mp4">Download HD Video</a>`;
-      }
-      if (data.downloads.sd) {
-        linksHTML += `<a class="dl-btn btn-sd" href="${data.downloads.sd}" target="_blank" rel="noopener noreferrer" download="${data.title}_SD.mp4">Download SD Video</a>`;
-      }
-      
-      const audioUrl = data.downloads.sd || data.downloads.hd;
-      if (audioUrl) {
-        linksHTML += `<a class="dl-btn btn-audio" href="${audioUrl}" target="_blank" rel="noopener noreferrer">Stream / Save Audio Link</a>`;
-      }
+            <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm text-center">
+                <div class="w-10 h-10 mx-auto mb-3 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center">
+                    <i data-lucide="shield" class="w-5 h-5 fill-purple-600 text-purple-600"></i>
+                </div>
+                <h3 class="font-bold text-slate-900 text-lg">Rate Limited</h3>
+                <p class="text-slate-500 text-sm mt-1">Built-in protection against abuse with proper error handling</p>
+            </div>
+        </div>
 
-      btnGroup.innerHTML = linksHTML;
-      resultBox.style.display = 'block';
-    } else {
-      // Ipakita ang totoong error mula sa API response
-      alert("API Error: " + (data.message || 'May error sa pag-extract ng video.'));
-    }
-  } catch (err) {
-    // Ipakita ang eksaktong JS exception message
-    alert('Request Failed: ' + err.message);
-  } finally {
-    btnFetch.disabled = false;
-    spinner.style.display = 'none';
-  }
-}
-</script>
+    </main>
 
+    <!-- Footer -->
+    <footer class="py-6 text-center text-xs text-slate-500 space-y-3">
+        <p>© 2025 | made in ceylon with <span class="text-red-500">❤️</span> by <a href="#" class="text-blue-600 hover:underline">sh13y</a></p>
+        <p class="text-slate-400">Licensed under WPFTR</p>
+        <div class="flex items-center justify-center gap-4 text-slate-600 pt-1">
+            <a href="#" class="hover:text-slate-900"><i data-lucide="github" class="w-5 h-5"></i></a>
+            <a href="#" class="hover:text-slate-900"><i data-lucide="file-text" class="w-5 h-5"></i></a>
+        </div>
+    </footer>
+
+    <script>
+        lucide.createIcons();
+
+        // Counter Load & Increment Functions
+        async function loadGlobalCounter() {
+            try {
+                const res = await fetch('/api/counter');
+                const data = await res.json();
+                if(data.status === 'success') {
+                    document.getElementById('downloadCounter').innerText = Number(data.count).toLocaleString();
+                }
+            } catch (e) {
+                console.error('Failed to load Upstash Redis counter:', e);
+            }
+        }
+
+        async function incrementGlobalCounter() {
+            try {
+                const res = await fetch('/api/counter', { method: 'POST' });
+                const data = await res.json();
+                if(data.status === 'success') {
+                    const counterEl = document.getElementById('downloadCounter');
+                    counterEl.innerText = Number(data.count).toLocaleString();
+                    counterEl.classList.add('text-blue-600', 'scale-105');
+                    setTimeout(() => counterEl.classList.remove('text-blue-600', 'scale-105'), 300);
+                }
+            } catch (e) {
+                console.error('Failed to increment counter:', e);
+            }
+        }
+
+        loadGlobalCounter();
+
+        // Quality Option Active Style Handler
+        const cards = document.querySelectorAll('.quality-card');
+        cards.forEach(card => {
+            const radio = card.querySelector('input[type="radio"]');
+            function updateStyle() {
+                cards.forEach(c => c.classList.remove('border-blue-600', 'bg-blue-50/30'));
+                if(radio.checked) card.classList.add('border-blue-600', 'bg-blue-50/30');
+            }
+            radio.addEventListener('change', updateStyle);
+            if(radio.checked) updateStyle();
+        });
+
+        // Form Submission Handler
+        document.getElementById('downloadForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const submitBtn = document.getElementById('submitBtn');
+            const loadingState = document.getElementById('loadingState');
+            const errorState = document.getElementById('errorState');
+            const successState = document.getElementById('successState');
+            const urlInput = document.getElementById('videoUrl').value;
+            const qualitySelected = document.querySelector('input[name="quality"]:checked').value;
+
+            errorState.classList.add('hidden');
+            successState.classList.add('hidden');
+            loadingState.classList.remove('hidden');
+
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = `<div class="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div> Processing...`;
+
+            try {
+                const res = await fetch('/api/download', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: urlInput, quality: qualitySelected })
+                });
+
+                const data = await res.json();
+
+                if (res.ok && data.status === 'success') {
+                    document.getElementById('resTitle').innerText = data.video_info.title;
+                    document.getElementById('resDuration').innerText = data.video_info.duration;
+                    document.getElementById('resUploader').innerText = data.video_info.uploader;
+                    document.getElementById('resViews').innerText = Number(data.video_info.view_count).toLocaleString();
+                    document.getElementById('resDownloadBtn').href = data.download_url;
+
+                    successState.classList.remove('hidden');
+                    await incrementGlobalCounter();
+                } else {
+                    document.getElementById('errorMessage').innerText = data.message || 'Failed to extract video information: This video is private or not available for download.';
+                    errorState.classList.remove('hidden');
+                }
+            } catch (err) {
+                document.getElementById('errorMessage').innerText = 'Failed to extract video information: Server connection issue.';
+                errorState.classList.remove('hidden');
+            } finally {
+                loadingState.classList.add('hidden');
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = `<i data-lucide="download" class="w-5 h-5"></i><span>Download Video</span>`;
+                lucide.createIcons();
+            }
+        });
+    </script>
 </body>
 </html>
