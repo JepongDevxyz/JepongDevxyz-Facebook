@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-// Native Upstash REST Helper
+// Upstash Redis Helper via REST API
 async function upstashRedis(command, ...args) {
   const url = process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
@@ -44,38 +44,49 @@ export default async function handler(req, res) {
   }
 
   try {
-    // External API Scraper (SnapSave-based endpoint)
-    const response = await axios.get(`https://api.vytal.to/fb?url=${encodeURIComponent(url)}`, {
-      timeout: 12000,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
-      }
-    });
+    // Primary API Service for FB Video Parsing
+    const apiUrl = `https://api.vytal.cx/fb?url=${encodeURIComponent(url)}`;
+    
+    // Backup API Service
+    const backupApiUrl = `https://fdown-api.vercel.app/api/download?url=${encodeURIComponent(url)}`;
 
-    const data = response.data;
+    let videoData = null;
 
-    if (!data || !data.downloads || (!data.downloads.hd && !data.downloads.sd)) {
-      // Fallback extraction query kung may ibang format
-      if (data && (data.hd || data.sd)) {
-        data.downloads = { hd: data.hd, sd: data.sd };
-      } else {
-        return res.status(404).json({
-          success: false,
-          message: 'Hindi ma-extract ang video. Siguraduhing Public ang post at hindi Private group video.'
-        });
+    try {
+      const response = await axios.get(apiUrl, { timeout: 8000 });
+      if (response.data && (response.data.hd || response.data.sd || response.data.downloads)) {
+        videoData = response.data;
       }
+    } catch (e) {
+      console.log('Primary API failed, trying backup...');
     }
 
-    // Increment count via REST
+    // Fallback kung nag-fail ang primary
+    if (!videoData) {
+      const backupResponse = await axios.get(backupApiUrl, { timeout: 8000 });
+      videoData = backupResponse.data;
+    }
+
+    const hdUrl = videoData?.downloads?.hd || videoData?.hd || null;
+    const sdUrl = videoData?.downloads?.sd || videoData?.sd || hdUrl;
+
+    if (!hdUrl && !sdUrl) {
+      return res.status(404).json({
+        success: false,
+        message: 'Hindi ma-extract ang video. Siguraduhing Public ang post at pampublikong FB page/profile ito.'
+      });
+    }
+
+    // Increment download counter
     const totalDownloads = await upstashRedis('incr', 'fb_download_count');
 
     return res.status(200).json({
       success: true,
-      title: data.title || 'Facebook_Video',
-      thumbnail: data.thumbnail || '',
+      title: videoData.title || 'Facebook_Video',
+      thumbnail: videoData.thumbnail || videoData.thumb || '',
       downloads: {
-        hd: data.downloads.hd || null,
-        sd: data.downloads.sd || data.downloads.hd
+        hd: hdUrl,
+        sd: sdUrl
       },
       totalDownloads: totalDownloads || 0
     });
@@ -83,7 +94,7 @@ export default async function handler(req, res) {
   } catch (error) {
     return res.status(500).json({
       success: false,
-      message: 'Extraction Error: ' + (error.response?.data?.message || error.message)
+      message: 'Extraction Error: Hindi makuha ang video link. Subukan ang ibang Facebook Video URL.'
     });
   }
 }
