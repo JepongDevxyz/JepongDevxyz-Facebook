@@ -1,9 +1,0 @@
-{
-  "name": "fb-downloader-redis",
-  "version": "1.0.0",
-  "private": true,
-  "dependencies": {
-    "@upstash/redis": "^1.34.0",
-    "yt-dlp-exec": "^2.4.0"
-  }
-}
