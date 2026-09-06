@@ -8,7 +8,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
-            darkMode: 'media', // Automatic basis sa system/phone theme ng user
+            darkMode: 'media',
         }
     </script>
     <!-- Lucide Icons -->
@@ -20,7 +20,7 @@
 </head>
 <body class="bg-[#f8fafc] dark:bg-slate-900 text-slate-800 dark:text-slate-100 min-h-screen flex flex-col justify-between antialiased transition-colors duration-200">
 
-    <!-- Toast Notification (Powered by Jepong Devxyz) -->
+    <!-- Toast Notification -->
     <div id="toast" class="fixed top-5 right-5 z-50 transform translate-y-[-150%] opacity-0 transition-all duration-300 bg-slate-900 dark:bg-slate-800 text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 border border-slate-700">
         <i data-lucide="check-circle" class="w-5 h-5 text-emerald-400"></i>
         <div>
@@ -32,7 +32,6 @@
     <!-- Top Navigation Header -->
     <header class="bg-[#5850ec] text-white py-4 px-6 flex items-center shadow-md">
         <div class="max-w-4xl w-full mx-auto flex items-center gap-3">
-            <!-- Fixed Facebook White Logo -->
             <div class="bg-white p-2 rounded-full flex items-center justify-center">
                 <svg class="w-6 h-6 fill-[#5850ec]" viewBox="0 0 24 24">
                     <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
@@ -45,16 +44,13 @@
     <!-- Main Content Container -->
     <main class="max-w-xl w-full mx-auto px-4 py-8 flex-grow">
         
-        <!-- Hero Title Header -->
         <div class="text-center mb-8">
             <h2 class="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">Download Facebook Videos</h2>
             <p class="text-slate-500 dark:text-slate-400 text-sm mt-2">Enter a Facebook video URL and select your preferred quality</p>
         </div>
 
-        <!-- Form Card -->
         <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700 shadow-sm p-6 space-y-6">
             <form id="downloadForm" class="space-y-6">
-                <!-- Input URL Field -->
                 <div>
                     <label class="block text-sm font-semibold text-slate-700 dark:text-slate-200 mb-2">Facebook Video Link</label>
                     <div class="relative">
@@ -65,7 +61,6 @@
                     </div>
                 </div>
 
-                <!-- Video Quality Radio Options Grid -->
                 <div>
                     <label class="block text-sm font-semibold text-slate-700 dark:text-slate-200 mb-2">Video Quality / Format</label>
                     <div class="grid grid-cols-2 gap-3">
@@ -89,7 +84,6 @@
                             <span class="text-sm font-medium text-slate-700 dark:text-slate-200">Low Quality</span>
                             <input type="radio" name="quality" value="worst" class="w-4 h-4 text-blue-600 focus:ring-blue-500">
                         </label>
-                        <!-- MP3 Audio Only Option -->
                         <label class="quality-card flex items-center justify-between p-3.5 border border-amber-300 dark:border-amber-600 bg-amber-50/40 dark:bg-amber-950/20 rounded-xl cursor-pointer hover:bg-amber-100/50 transition-all">
                             <span class="text-sm font-semibold text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
                                 <i data-lucide="music" class="w-4 h-4"></i> Audio (.MP3)
@@ -99,30 +93,33 @@
                     </div>
                 </div>
 
-                <!-- Submit Button with Matching Spinner -->
+                <!-- Submit Button with Carbon Copy Spinner -->
                 <button type="submit" id="submitBtn" class="w-full py-3.5 bg-[#2563eb] hover:bg-blue-700 text-white font-semibold rounded-xl shadow-md transition-all flex items-center justify-center gap-2">
                     <i data-lucide="download" class="w-5 h-5"></i>
                     <span>Generate</span>
                 </button>
             </form>
 
-            <!-- Loading Spinner State (Matched design) -->
-            <div id="loadingState" class="hidden text-center py-6 space-y-3">
-                <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-slate-200 dark:border-slate-700 border-t-blue-600"></div>
+            <!-- Loading Spinner State (Carbon Copy match sa Reference Video) -->
+            <div id="loadingState" class="hidden text-center py-6 space-y-4">
+                <div class="flex items-center justify-center gap-3">
+                    <div class="inline-block animate-spin rounded-full h-5 w-5 border-2 border-blue-600 border-t-transparent"></div>
+                    <span class="text-blue-600 dark:text-blue-400 font-semibold text-base">Processing...</span>
+                </div>
+                <div class="flex justify-center">
+                    <div class="inline-block animate-spin rounded-full h-7 w-7 border-4 border-slate-200 dark:border-slate-700 border-t-blue-600"></div>
+                </div>
                 <p class="text-slate-500 dark:text-slate-400 text-sm font-medium">Generating download options...</p>
             </div>
 
-            <!-- Error Box Container -->
             <div id="errorState" class="hidden p-4 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-xl space-y-1">
                 <h4 class="text-red-700 dark:text-red-400 font-bold text-base">Error</h4>
                 <p id="errorMessage" class="text-red-600 dark:text-red-300 text-sm">Failed to extract video information.</p>
             </div>
 
-            <!-- Success Box (Video Ready State with Preview) -->
             <div id="successState" class="hidden p-5 bg-[#ecfdf5] dark:bg-emerald-950/30 border border-[#a7f3d0] dark:border-emerald-800 rounded-xl space-y-4">
                 <h3 class="text-emerald-800 dark:text-emerald-400 font-bold text-lg">JepongDevxyz - FBDL4U</h3>
                 
-                <!-- Video Preview Image -->
                 <div id="previewContainer" class="relative rounded-lg overflow-hidden border border-emerald-200 dark:border-emerald-800 shadow-sm bg-black aspect-video flex items-center justify-center">
                     <img id="resThumbnail" src="" alt="Video Preview" class="w-full h-full object-cover">
                 </div>
@@ -146,7 +143,6 @@
                     </div>
                 </div>
 
-                <!-- Action Buttons: Direct Download + Generate Another -->
                 <div class="space-y-2 pt-2">
                     <button id="resDownloadBtn" class="w-full py-3 bg-[#059669] hover:bg-emerald-700 text-white font-semibold rounded-xl transition-all flex items-center justify-center gap-2 shadow">
                         <i data-lucide="download" class="w-5 h-5"></i>
@@ -161,7 +157,6 @@
             </div>
         </div>
 
-        <!-- Global Counter Card -->
         <div class="mt-6 bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-700 shadow-sm flex items-center justify-between">
             <div class="flex items-center gap-3.5">
                 <div class="w-10 h-10 bg-indigo-50 dark:bg-indigo-950/50 text-[#5850ec] rounded-xl flex items-center justify-center">
@@ -180,7 +175,6 @@
 
     </main>
 
-    <!-- Footer -->
     <footer class="py-6 text-center text-xs text-slate-500 dark:text-slate-400 space-y-3">
         <p>© 2026 | Powered by <a href="#" class="text-blue-600 font-bold hover:underline">Jepong Devxyz</a></p>
     </footer>
@@ -193,7 +187,6 @@
         let currentTitle = '';
         let currentSelectedFormat = 'mp4';
 
-        // Toast Handler
         function showToast(message) {
             const toast = document.getElementById('toast');
             document.getElementById('toastTitle').innerText = message;
@@ -213,7 +206,7 @@
                     document.getElementById('downloadCounter').innerText = Number(data.count).toLocaleString();
                 }
             } catch (e) {
-                console.error('Failed to load Upstash Redis counter:', e);
+                console.error('Failed to load counter:', e);
             }
         }
 
@@ -222,8 +215,7 @@
                 const res = await fetch('/api/counter', { method: 'POST' });
                 const data = await res.json();
                 if (data.status === 'success') {
-                    const counterEl = document.getElementById('downloadCounter');
-                    counterEl.innerText = Number(data.count).toLocaleString();
+                    document.getElementById('downloadCounter').innerText = Number(data.count).toLocaleString();
                 }
             } catch (e) {
                 console.error('Failed to increment counter:', e);
@@ -232,7 +224,6 @@
 
         loadGlobalCounter();
 
-        // Quality Active Styles
         const cards = document.querySelectorAll('.quality-card');
         cards.forEach(card => {
             const radio = card.querySelector('input[type="radio"]');
@@ -244,7 +235,6 @@
             if (radio.checked) updateStyle();
         });
 
-        // Form Submit
         document.getElementById('downloadForm').addEventListener('submit', async (e) => {
             e.preventDefault();
 
@@ -305,39 +295,33 @@
             } finally {
                 loadingState.classList.add('hidden');
                 submitBtn.disabled = false;
-                submitBtn.innerHTML = `<i data-lucide="download" class="w-5 h-5"></i><span>Download Video</span>`;
+                submitBtn.innerHTML = `<i data-lucide="download" class="w-5 h-5"></i><span>Generate</span>`;
                 lucide.createIcons();
             }
         });
 
-        // Direct Download without Opening New Tab
-        document.getElementById('resDownloadBtn').addEventListener('click', async () => {
+        // Direct Download via Invisible Hidden Iframe to bypass CORS and prevent opening new tab
+        document.getElementById('resDownloadBtn').addEventListener('click', () => {
             if (!currentDownloadUrl) return;
 
             showToast('Downloading...');
 
-            try {
-                const response = await fetch(currentDownloadUrl);
-                const blob = await response.blob();
-                const blobUrl = URL.createObjectURL(blob);
-                
-                const link = document.createElement('a');
-                link.href = blobUrl;
-                link.download = `${currentTitle.replace(/[^a-zA-Z0-9]/g, "_")}.${currentSelectedFormat}`;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                URL.revokeObjectURL(blobUrl);
-            } catch (e) {
-                // Fallback kung may CORS restriction ang direct file URL
-                const link = document.createElement('a');
-                link.href = currentDownloadUrl;
-                link.download = `${currentTitle}.${currentSelectedFormat}`;
-                link.click();
-            }
+            const safeTitle = currentTitle.replace(/[^a-zA-Z0-9]/g, "_");
+            const fileName = `${safeTitle}.${currentSelectedFormat}`;
+
+            // Gumamit ng hidden iframe para ma-trigger ang direktang file download nang walang new tab o CORS error
+            const iframe = document.createElement('iframe');
+            iframe.style.display = 'none';
+            
+            // Kung may support ang browser sa download attribute, pwede rin natin i-direct link trick o proxy download URL
+            iframe.src = `${currentDownloadUrl}&title=${encodeURIComponent(fileName)}`;
+            document.body.appendChild(iframe);
+
+            setTimeout(() => {
+                document.body.removeChild(iframe);
+            }, 10000);
         });
 
-        // Generate Another Action
         document.getElementById('generateAnotherBtn').addEventListener('click', () => {
             document.getElementById('videoUrl').value = '';
             document.getElementById('successState').classList.add('hidden');
