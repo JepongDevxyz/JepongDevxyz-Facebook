@@ -95,14 +95,14 @@
 
                 <button type="submit" id="submitBtn" class="w-full py-3.5 bg-[#2563eb] hover:bg-blue-700 text-white font-semibold rounded-xl shadow-md transition-all flex items-center justify-center gap-2">
                     <i data-lucide="download" class="w-5 h-5"></i>
-                    <span>Generate</span>
+                    <span>Download Video</span>
                 </button>
             </form>
 
-            <!-- Fixed Spinner State (Awtomatikong iikot nang maayos) -->
+            <!-- Exact Reference-Style Spinner State -->
             <div id="loadingState" class="hidden text-center py-6 space-y-3">
-                <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-slate-200 dark:border-slate-700 border-t-blue-600 mx-auto"></div>
-                <p class="text-slate-500 dark:text-slate-400 text-sm font-medium">Generating download options...</p>
+                <div class="inline-block animate-spin rounded-full h-8 w-8 border-[3px] border-slate-200 dark:border-slate-700 border-t-blue-600 mx-auto"></div>
+                <p class="text-slate-500 dark:text-slate-400 text-sm font-medium">Processing your video...</p>
             </div>
 
             <div id="errorState" class="hidden p-4 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-xl space-y-1">
@@ -111,7 +111,7 @@
             </div>
 
             <div id="successState" class="hidden p-5 bg-[#ecfdf5] dark:bg-emerald-950/30 border border-[#a7f3d0] dark:border-emerald-800 rounded-xl space-y-4">
-                <h3 class="text-emerald-800 dark:text-emerald-400 font-bold text-lg">JepongDevxyz - FBDL4U</h3>
+                <h3 class="text-emerald-800 dark:text-emerald-400 font-bold text-lg">Video Ready!</h3>
                 
                 <div id="previewContainer" class="relative rounded-lg overflow-hidden border border-emerald-200 dark:border-emerald-800 shadow-sm bg-black aspect-video flex items-center justify-center">
                     <img id="resThumbnail" src="" alt="Video Preview" class="w-full h-full object-cover">
@@ -139,7 +139,7 @@
                 <div class="space-y-2 pt-2">
                     <button id="resDownloadBtn" class="w-full py-3 bg-[#059669] hover:bg-emerald-700 text-white font-semibold rounded-xl transition-all flex items-center justify-center gap-2 shadow">
                         <i data-lucide="download" class="w-5 h-5"></i>
-                        <span>Download</span>
+                        <span>Download Now</span>
                     </button>
                     
                     <button id="generateAnotherBtn" class="w-full py-2.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-white font-medium rounded-xl transition-all flex items-center justify-center gap-2">
@@ -288,13 +288,12 @@
             } finally {
                 loadingState.classList.add('hidden');
                 submitBtn.disabled = false;
-                submitBtn.innerHTML = `<i data-lucide="download" class="w-5 h-5"></i><span>Generate</span>`;
+                submitBtn.innerHTML = `<i data-lucide="download" class="w-5 h-5"></i><span>Download Video</span>`;
                 lucide.createIcons();
             }
         });
 
-        // Direct Download via Blob/Object URL para hindi magbukas ng bagong tab sa browser
-        document.getElementById('resDownloadBtn').addEventListener('click', async () => {
+        document.getElementById('resDownloadBtn').addEventListener('click', () => {
             if (!currentDownloadUrl) return;
 
             showToast('Downloading...');
@@ -302,27 +301,14 @@
             const safeTitle = currentTitle.replace(/[^a-zA-Z0-9]/g, "_").substring(0, 50);
             const fileName = `${safeTitle}.${currentSelectedFormat}`;
 
-            try {
-                const response = await fetch(currentDownloadUrl);
-                const blob = await response.blob();
-                const blobUrl = URL.createObjectURL(blob);
-                
-                const link = document.createElement('a');
-                link.href = blobUrl;
-                link.download = fileName;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                URL.revokeObjectURL(blobUrl);
-            } catch (e) {
-                // Fallback kung sakaling may strict CORS restriction sa CDN, gamitin ang hidden link download
-                const link = document.createElement('a');
-                link.href = currentDownloadUrl;
-                link.setAttribute('download', fileName);
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-            }
+            const a = document.createElement('a');
+            a.href = currentDownloadUrl;
+            a.target = '_blank';
+            a.rel = 'noopener noreferrer';
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
         });
 
         document.getElementById('generateAnotherBtn').addEventListener('click', () => {
