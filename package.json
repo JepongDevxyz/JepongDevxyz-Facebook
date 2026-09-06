@@ -1,0 +1,8 @@
+{
+  "name": "fbdl4u",
+  "version": "1.0.0",
+  "description": "Facebook Video Downloader",
+  "dependencies": {
+    "@upstash/redis": "^1.28.4"
+  }
+}
