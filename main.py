@@ -1,9 +1,10 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 from pydantic import BaseModel
 import yt_dlp
 import os
+import requests
 from upstash_redis import Redis
 
 app = FastAPI()
@@ -27,8 +28,6 @@ class DownloadRequest(BaseModel):
 
 @app.get("/", response_class=HTMLResponse)
 def read_index():
-    # Ilagay dito o i-serve ang buong index.html mo kung nasa public folder ito, 
-    # o maaari mo ring ilagay ang HTML code direkta rito para lumabas agad sa root URL.
     if os.path.exists("public/index.html"):
         with open("public/index.html", "r", encoding="utf-8") as f:
             return f.read()
@@ -81,4 +80,21 @@ def download_video(req: DownloadRequest):
                 }
             }
     except Exception as e:
-        raise HTTPException(status_code=400, code=str(e), detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.get("/api/proxy-download")
+def proxy_download(url: str, filename: str = "video.mp4"):
+    try:
+        resp = requests.get(url, stream=True, timeout=30)
+        
+        def iterfile():
+            for chunk in resp.iter_content(chunk_size=1024*1024):
+                if chunk:
+                    yield chunk
+
+        headers = {
+            "Content-Disposition": f'attachment; filename="{filename}"'
+        }
+        return StreamingResponse(iterfile(), headers=headers, media_type=resp.headers.get("content-type", "video/mp4"))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
