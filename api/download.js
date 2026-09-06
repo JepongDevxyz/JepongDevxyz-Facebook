@@ -2,8 +2,15 @@ import axios from 'axios';
 import * as cheerio from 'cheerio';
 import { Redis } from '@upstash/redis';
 
-// Initialize Upstash Redis mula sa Vercel Environment Variables
-const redis = Redis.fromEnv();
+// Safe Redis Initialization
+let redis = null;
+try {
+  if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
+    redis = Redis.fromEnv();
+  }
+} catch (e) {
+  console.error("Redis init error:", e);
+}
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -14,11 +21,14 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  // GET Request: Kunin ang current count (nagsisimula sa 0)
+  // GET Request: Safe Counter Fetch
   if (req.method === 'GET') {
     try {
-      const count = (await redis.get('fb_download_count')) || 0;
-      return res.status(200).json({ success: true, count: Number(count) });
+      if (redis) {
+        const count = (await redis.get('fb_download_count')) || 0;
+        return res.status(200).json({ success: true, count: Number(count) });
+      }
+      return res.status(200).json({ success: true, count: 0 });
     } catch (err) {
       return res.status(200).json({ success: true, count: 0 });
     }
@@ -52,7 +62,6 @@ export default async function handler(req, res) {
                      'Facebook_Video';
     const thumbnail = $('meta[property="og:image"]').attr('content') || '';
 
-    // Regex match para sa HD at SD URLs
     const hdMatch = html.match(/"browser_native_hd_url":"([^"]+)"/) || 
                     html.match(/hd_src:"([^"]+)"/) ||
                     html.match(/"playable_url_quality_hd":"([^"]+)"/);
@@ -73,14 +82,14 @@ export default async function handler(req, res) {
       });
     }
 
-    // Mag-increment sa Upstash Redis (mula 0 papuntang 1, 2, 3...)
+    // Safe Increment sa Redis
     let totalDownloads = 0;
-    try {
-      totalDownloads = await redis.incr('fb_download_count');
-    } catch (redisErr) {
-      console.error('Redis Increment Error:', redisErr);
-      const current = await redis.get('fb_download_count');
-      totalDownloads = current ? Number(current) : 0;
+    if (redis) {
+      try {
+        totalDownloads = await redis.incr('fb_download_count');
+      } catch (redisErr) {
+        console.error('Redis Increment Error:', redisErr);
+      }
     }
 
     const cleanTitle = rawTitle.replace(/[^\w\s-]/gi, '').trim() || 'Facebook_Video';
