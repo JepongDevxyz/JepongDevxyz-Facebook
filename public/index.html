@@ -99,17 +99,26 @@
                     </div>
                 </div>
 
-                <!-- Submit Button with Matching Spinner -->
+                <!-- Submit Button -->
                 <button type="submit" id="submitBtn" class="w-full py-3.5 bg-[#2563eb] hover:bg-blue-700 text-white font-semibold rounded-xl shadow-md transition-all flex items-center justify-center gap-2">
                     <i data-lucide="download" class="w-5 h-5"></i>
                     <span>Generate</span>
                 </button>
             </form>
 
-            <!-- Loading Spinner State (Matched design) -->
-            <div id="loadingState" class="hidden text-center py-6 space-y-3">
-                <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-slate-200 dark:border-slate-700 border-t-blue-600"></div>
-                <p class="text-slate-500 dark:text-slate-400 text-sm font-medium">Generating download options...</p>
+            <!-- Loading Spinner State (Color-shifting Ripple Effect) -->
+            <div id="loadingState" class="hidden text-center py-6 space-y-4">
+                <div class="relative flex justify-center items-center h-16">
+                    <!-- Outer Ripple (Blue to Indigo) -->
+                    <div class="absolute w-14 h-14 rounded-full border-4 border-blue-500 animate-ping opacity-75"></div>
+                    <!-- Middle Ripple (Purple to Pink shift) -->
+                    <div class="absolute w-20 h-20 rounded-full border-4 border-purple-500 animate-pulse delay-150 opacity-60"></div>
+                    <!-- Inner Core Dot (Emerald Glowing) -->
+                    <div class="w-6 h-6 bg-emerald-400 rounded-full animate-bounce shadow-lg shadow-emerald-500/50"></div>
+                </div>
+                <p class="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 text-sm font-bold animate-pulse">
+                    Generating download options...
+                </p>
             </div>
 
             <!-- Error Box Container -->
@@ -301,11 +310,11 @@
                 }
             } catch (err) {
                 document.getElementById('errorMessage').innerText = 'Failed to extract video information: Server connection issue.';
-                errorState.classList.remove('hidden');
+                errorState.classList.add('hidden');
             } finally {
                 loadingState.classList.add('hidden');
                 submitBtn.disabled = false;
-                submitBtn.innerHTML = `<i data-lucide="download" class="w-5 h-5"></i><span>Download Video</span>`;
+                submitBtn.innerHTML = `<i data-lucide="download" class="w-5 h-5"></i><span>Generate</span>`;
                 lucide.createIcons();
             }
         });
@@ -329,7 +338,6 @@
                 document.body.removeChild(link);
                 URL.revokeObjectURL(blobUrl);
             } catch (e) {
-                // Fallback kung may CORS restriction ang direct file URL
                 const link = document.createElement('a');
                 link.href = currentDownloadUrl;
                 link.download = `${currentTitle}.${currentSelectedFormat}`;
