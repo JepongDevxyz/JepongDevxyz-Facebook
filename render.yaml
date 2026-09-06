@@ -2,7 +2,7 @@ services:
   - type: web
     name: facebook-video-downloader
     env: python
-    buildCommand: "pip install --upgrade pip && export CARGO_HOME=/tmp/cargo && pip install -r requirements.txt"
+    buildCommand: "pip install --no-cache-dir --upgrade pip && pip install --no-build-isolation -r requirements.txt"
     startCommand: "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
     envVars:
       - key: PYTHON_VERSION
