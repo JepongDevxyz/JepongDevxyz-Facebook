@@ -20,15 +20,6 @@
 </head>
 <body class="bg-[#f8fafc] dark:bg-slate-900 text-slate-800 dark:text-slate-100 min-h-screen flex flex-col justify-between antialiased transition-colors duration-200">
 
-    <!-- Toast Notification -->
-    <div id="toast" class="fixed top-5 right-5 z-50 transform translate-y-[-150%] opacity-0 transition-all duration-300 bg-slate-900 dark:bg-slate-800 text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 border border-slate-700">
-        <i data-lucide="check-circle" class="w-5 h-5 text-emerald-400"></i>
-        <div>
-            <p class="text-sm font-bold" id="toastTitle">Downloading...</p>
-            <p class="text-xs text-slate-400">Powered by Jepong Devxyz</p>
-        </div>
-    </div>
-
     <!-- Top Navigation Header -->
     <header class="bg-[#5850ec] text-white py-4 px-6 flex items-center shadow-md">
         <div class="max-w-4xl w-full mx-auto flex items-center gap-3">
@@ -52,7 +43,7 @@
         <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700 shadow-sm p-6 space-y-6">
             <form id="downloadForm" class="space-y-6">
                 <div>
-                    <label class="block text-sm font-semibold text-slate-700 dark:text-slate-200 mb-2">Facebook Video Link</label>
+                    <label class="block text-sm font-semibold text-slate-700 dark:text-slate-200 mb-2">Facebook Video URL</label>
                     <div class="relative">
                         <input type="url" id="videoUrl" required 
                                placeholder="https://www.facebook.com/share/v/..." 
@@ -62,7 +53,7 @@
                 </div>
 
                 <div>
-                    <label class="block text-sm font-semibold text-slate-700 dark:text-slate-200 mb-2">Video Quality / Format</label>
+                    <label class="block text-sm font-semibold text-slate-700 dark:text-slate-200 mb-2">Video Quality</label>
                     <div class="grid grid-cols-2 gap-3">
                         <label class="quality-card flex items-center justify-between p-3.5 border border-slate-200 dark:border-slate-700 rounded-xl cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-all">
                             <span class="text-sm font-medium text-slate-700 dark:text-slate-200">Best</span>
@@ -80,15 +71,9 @@
                             <span class="text-sm font-medium text-slate-700 dark:text-slate-200">360p</span>
                             <input type="radio" name="quality" value="360p" class="w-4 h-4 text-blue-600 focus:ring-blue-500">
                         </label>
-                        <label class="quality-card flex items-center justify-between p-3.5 border border-slate-200 dark:border-slate-700 rounded-xl cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-all">
-                            <span class="text-sm font-medium text-slate-700 dark:text-slate-200">Low Quality</span>
+                        <label class="quality-card flex items-center justify-between p-3.5 border border-slate-200 dark:border-slate-700 rounded-xl cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-all col-span-2">
+                            <span class="text-sm font-medium text-slate-700 dark:text-slate-200">Worst</span>
                             <input type="radio" name="quality" value="worst" class="w-4 h-4 text-blue-600 focus:ring-blue-500">
-                        </label>
-                        <label class="quality-card flex items-center justify-between p-3.5 border border-amber-300 dark:border-amber-600 bg-amber-50/40 dark:bg-amber-950/20 rounded-xl cursor-pointer hover:bg-amber-100/50 transition-all">
-                            <span class="text-sm font-semibold text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
-                                <i data-lucide="music" class="w-4 h-4"></i> Audio (.MP3)
-                            </span>
-                            <input type="radio" name="quality" value="mp3" class="w-4 h-4 text-amber-600 focus:ring-amber-500">
                         </label>
                     </div>
                 </div>
@@ -99,9 +84,9 @@
                 </button>
             </form>
 
-            <!-- Exact Reference-Style Spinner State -->
+            <!-- Exact Reference-Style Center Spinner State -->
             <div id="loadingState" class="hidden text-center py-6 space-y-3">
-                <div class="inline-block animate-spin rounded-full h-8 w-8 border-[3px] border-slate-200 dark:border-slate-700 border-t-blue-600 mx-auto"></div>
+                <div class="inline-block animate-spin rounded-full h-10 w-10 border-[3px] border-slate-200 dark:border-slate-700 border-t-blue-600 mx-auto"></div>
                 <p class="text-slate-500 dark:text-slate-400 text-sm font-medium">Processing your video...</p>
             </div>
 
@@ -112,10 +97,6 @@
 
             <div id="successState" class="hidden p-5 bg-[#ecfdf5] dark:bg-emerald-950/30 border border-[#a7f3d0] dark:border-emerald-800 rounded-xl space-y-4">
                 <h3 class="text-emerald-800 dark:text-emerald-400 font-bold text-lg">Video Ready!</h3>
-                
-                <div id="previewContainer" class="relative rounded-lg overflow-hidden border border-emerald-200 dark:border-emerald-800 shadow-sm bg-black aspect-video flex items-center justify-center">
-                    <img id="resThumbnail" src="" alt="Video Preview" class="w-full h-full object-cover">
-                </div>
 
                 <div class="space-y-2 text-sm text-slate-700 dark:text-slate-300">
                     <div>
@@ -140,11 +121,6 @@
                     <button id="resDownloadBtn" class="w-full py-3 bg-[#059669] hover:bg-emerald-700 text-white font-semibold rounded-xl transition-all flex items-center justify-center gap-2 shadow">
                         <i data-lucide="download" class="w-5 h-5"></i>
                         <span>Download Now</span>
-                    </button>
-                    
-                    <button id="generateAnotherBtn" class="w-full py-2.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-white font-medium rounded-xl transition-all flex items-center justify-center gap-2">
-                        <i data-lucide="refresh-cw" class="w-4 h-4"></i>
-                        <span>Generate Another</span>
                     </button>
                 </div>
             </div>
@@ -179,17 +155,6 @@
         let currentDownloadUrl = '';
         let currentTitle = '';
         let currentSelectedFormat = 'mp4';
-
-        function showToast(message) {
-            const toast = document.getElementById('toast');
-            document.getElementById('toastTitle').innerText = message;
-            toast.classList.remove('translate-y-[-150%]', 'opacity-0');
-            toast.classList.add('translate-y-0', 'opacity-100');
-            setTimeout(() => {
-                toast.classList.remove('translate-y-0', 'opacity-100');
-                toast.classList.add('translate-y-[-150%]', 'opacity-0');
-            }, 4000);
-        }
 
         async function loadGlobalCounter() {
             try {
@@ -238,7 +203,7 @@
             const urlInput = document.getElementById('videoUrl').value;
             const qualitySelected = document.querySelector('input[name="quality"]:checked').value;
 
-            currentSelectedFormat = qualitySelected === 'mp3' ? 'mp3' : 'mp4';
+            currentSelectedFormat = 'mp4';
 
             errorState.classList.add('hidden');
             successState.classList.add('hidden');
@@ -246,7 +211,7 @@
 
             submitBtn.disabled = true;
             submitBtn.innerHTML = `
-                <div class="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                <div class="inline-block animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
                 <span>Processing...</span>
             `;
 
@@ -261,20 +226,12 @@
 
                 if (res.ok && data.status === 'success') {
                     currentDownloadUrl = data.download_url;
-                    currentTitle = data.video_info.title || 'facebook_download';
+                    currentTitle = data.video_info.title || 'facebook_video';
 
                     document.getElementById('resTitle').innerText = data.video_info.title || 'Facebook Video';
                     document.getElementById('resDuration').innerText = data.video_info.duration || 'N/A';
                     document.getElementById('resUploader').innerText = data.video_info.uploader || 'N/A';
                     document.getElementById('resViews').innerText = data.video_info.view_count ? Number(data.video_info.view_count).toLocaleString() : 'N/A';
-
-                    const thumbEl = document.getElementById('resThumbnail');
-                    if (data.video_info.thumbnail) {
-                        thumbEl.src = data.video_info.thumbnail;
-                        document.getElementById('previewContainer').classList.remove('hidden');
-                    } else {
-                        document.getElementById('previewContainer').classList.add('hidden');
-                    }
 
                     successState.classList.remove('hidden');
                     await incrementGlobalCounter();
@@ -284,7 +241,7 @@
                 }
             } catch (err) {
                 document.getElementById('errorMessage').innerText = 'Failed to extract video information: Server connection issue.';
-                errorState.classList.remove('hidden');
+                errorState.classList.add('hidden');
             } finally {
                 loadingState.classList.add('hidden');
                 submitBtn.disabled = false;
@@ -293,28 +250,49 @@
             }
         });
 
-        document.getElementById('resDownloadBtn').addEventListener('click', () => {
+        // Eksaktong gaya ng reference: "Downloading..." state sa button bago mag-download nang kusa
+        document.getElementById('resDownloadBtn').addEventListener('click', async () => {
             if (!currentDownloadUrl) return;
 
-            showToast('Downloading...');
+            const dlBtn = document.getElementById('resDownloadBtn');
+            dlBtn.disabled = true;
+            dlBtn.innerHTML = `
+                <div class="inline-block animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                <span>Downloading...</span>
+            `;
 
             const safeTitle = currentTitle.replace(/[^a-zA-Z0-9]/g, "_").substring(0, 50);
             const fileName = `${safeTitle}.${currentSelectedFormat}`;
 
-            const a = document.createElement('a');
-            a.href = currentDownloadUrl;
-            a.target = '_blank';
-            a.rel = 'noopener noreferrer';
-            a.download = fileName;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-        });
-
-        document.getElementById('generateAnotherBtn').addEventListener('click', () => {
-            document.getElementById('videoUrl').value = '';
-            document.getElementById('successState').classList.add('hidden');
-            document.getElementById('videoUrl').focus();
+            try {
+                const response = await fetch(currentDownloadUrl);
+                const blob = await response.blob();
+                const blobUrl = URL.createObjectURL(blob);
+                
+                const link = document.createElement('a');
+                link.href = blobUrl;
+                link.download = fileName;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(blobUrl);
+            } catch (e) {
+                // Fallback direct link trick kung may CORS block
+                const link = document.createElement('a');
+                link.href = currentDownloadUrl;
+                link.target = '_blank';
+                link.rel = 'noopener noreferrer';
+                link.download = fileName;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            } finally {
+                setTimeout(() => {
+                    dlBtn.disabled = false;
+                    dlBtn.innerHTML = `<i data-lucide="download" class="w-5 h-5"></i><span>Download Now</span>`;
+                    lucide.createIcons();
+                }, 1500);
+            }
         });
     </script>
 </body>
