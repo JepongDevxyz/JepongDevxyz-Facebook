@@ -12,6 +12,7 @@ import time
 import math
 import requests
 from upstash_redis import Redis
+
 # v9: ang raw yt-dlp error (bot check + wiki links) ay hindi na
 # ipinapakita sa user — maikling Tagalog message na lang.
 BOT_MSG = "Na-block ng YouTube ang server ngayon (bot check). Subukan ulit mamaya, o 360p/MP3 muna."
@@ -26,10 +27,10 @@ def friendly_err(e):
         return "Hindi available ang video na ito (private o tinanggal)."
     return msg
 
-    def _cap_dim(q):
+def _cap_dim(q):
     # v10: '1080p' -> 1920. Ang cap ay ang MALAKING dimension (16:9),
     # para gumana sa portrait (1080x1920) at landscape (1920x1080).
-    m = re.fullmatch(r'(\d+)p', q or ''
+    m = re.fullmatch(r'(\d+)p', q or '')
     n = min(int(m.group(1)), 4320) if m else 4320
     return math.ceil(n * 16 / 9)
 
@@ -91,6 +92,8 @@ def download_video(req: DownloadRequest):
         # formats (bestvideo+bestaudio) ay walang iisang download URL,
         # kaya download_url: null ang bumabalik. FB links: walang
         # nagbabago — dating format mapping pa rin ang gamit sa baba.
+        # v9: kahit anong '{height}p' (1440p/480p/240p/144p kasama) —
+        # parse lang ang numero, hindi na hardcoded na listahan.
         _m = re.fullmatch(r'(\d+)p', req.quality or '')
         if _m:
             _d = _cap_dim(req.quality)
@@ -106,6 +109,7 @@ def download_video(req: DownloadRequest):
     elif req.quality == 'mp3':
         ydl_opts['format'] = 'bestaudio/best'
     else:
+        # v9: kahit anong '{height}p' para sa Facebook din.
         _m = re.fullmatch(r'(\d+)p', req.quality or '')
         if _m:
             _d = _cap_dim(req.quality)
@@ -113,6 +117,7 @@ def download_video(req: DownloadRequest):
         else:
             ydl_opts['format'] = 'best'
 
+    # v9: YouTube = 2 attempts (pabugso-bugso ang bot check).
     info = None
     last_err = None
     for _ in range(2 if is_youtube else 1):
@@ -154,9 +159,10 @@ def download_video(req: DownloadRequest):
 # mo dati (360p file pa rin ang bumabalik nun — misleading).
 #   YouTube  -> combined mp4 lang (may video AT audio sa iisang file)
 #   Facebook -> kahit anong video format (merged ang download doon)
+# v9: LAHAT ng tunay na height ang lalabas (1440p/480p/240p/144p
+# kasama) — hindi lang yung 5 caps. Kung ano ang available, yun
+# din ang ipapakita sa picker at mada-download (tulad ng YouTube).
 # Ang "best" ay available kung may kahit anong video na mada-download.
-# Ang 1080p/720p/360p ay available lang kung yung pinakamataas na
-# format na pasok sa cap ay EXACTLY yung cap na yun.
 # v4: para sa YouTube, web client na ang gamit (DASH heights — yun ang
 # tunay na resolution; hanggang 8K (4320p) kung available — v5).
 # `merged_qualities` = yung qualities na kailangan ng server-side merge
@@ -173,6 +179,8 @@ def list_formats(req: DownloadRequest):
     # merge extract ay gumagana 5/5 habang ang formats extract na
     # 'best' lang ay bumabagsak 3/3, kaya pareho na sila ngayon.
     # Dalawang beses susubukan ang web bago mag-android fallback.
+    # v9: android, 3 attempts — pabugso-bugso ang bot check, kaya
+    # inuulit (minsan gumagana sa 2nd/3rd try).
     merge_fmt = 'bestvideo[height<=4320][ext=mp4]+bestaudio[ext=m4a]/best[height<=4320][ext=mp4]/best[height<=4320]'
     clients = [
         {'format': merge_fmt, 'skip_download': True},
@@ -210,10 +218,10 @@ def list_formats(req: DownloadRequest):
         if is_youtube and f.get('ext') != 'mp4':
             continue
         has_video = True
-            # v10: ang label ay ang MALIIT na dimension (tulad ng YouTube:
-            # 1080x1920 portrait = '1080p', 1920x1080 landscape = '1080p').
+        # v10: ang label ay ang MALIIT na dimension (tulad ng YouTube:
+        # 1080x1920 portrait = '1080p', 1920x1080 landscape = '1080p').
         w = f.get('width')
-            h = f.get('height')
+        h = f.get('height')
         m = min(w, h) if w and h else (h or w)
         if m and m <= 4320:  # hanggang 8K (v5) — kung available
             video_heights.add(int(m))
@@ -286,17 +294,18 @@ def download_merged(req: DownloadRequest):
     # bestvideo pa rin (av1 o avc1 — parehong kayang i-mux ng ffmpeg
     # 4.2 sa MP4, napatunayan sa local test gamit ang mismong 4.2.2
     # binary). Pag walang mp4 video sa cap, combined mp4 ang fallback.
-    _m = re.fullmatch(r'(\d+)p', q or '')
+    # v9: kahit anong '{height}p' (1440p/480p/240p/144p kasama) —
+    # parse lang ang numero, hindi na hardcoded na listahan.
     # v10: D-cap (malaking dimension) + audio fallback: m4a muna, tapos
     # kahit anong audio (para sa Facebook na hindi m4a ang audio).
     _d = _cap_dim(q)
     fmt = (f'bestvideo[height<={_d}][width<={_d}][ext=mp4]+bestaudio[ext=m4a]'
-                 f'/bestvideo[height<={_d}][width<={_d}][ext=mp4]+bestaudio'
-             f'/best[height<={_d}][width<={_d}][ext=mp4]/best[height<={_d}][width<={_d}]')
-
+           f'/bestvideo[height<={_d}][width<={_d}][ext=mp4]+bestaudio'
+           f'/best[height<={_d}][width<={_d}][ext=mp4]/best[height<={_d}][width<={_d}]')
 
     # 1) Alamin kung gumagana ang web client (at gaano kahaba/kalaki ang
     #    video) bago mag-download. Pag bot-blocked, android fallback.
+    # v9: android, 3 attempts — pabugso-bugso ang bot check.
     clients = [{}]
     if is_youtube:
         android = {'extractor_args': {'youtube': {'player_client': ['android']}}}
