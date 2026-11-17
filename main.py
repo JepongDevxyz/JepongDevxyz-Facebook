@@ -7,9 +7,11 @@ import yt_dlp
 import os
 import re
 import shutil
+import subprocess
 import tempfile
 import time
 import math
+import urllib.parse
 import requests
 from upstash_redis import Redis
 
@@ -61,17 +63,22 @@ def read_index():
     return "Backend is running! Please place index.html inside the public folder."
 
 @app.get("/api/counter")
-def get_counter():
+def get_counter(platform: str = ""):
+    # v11: per-platform counter — 'reddit' lang ang may sariling key
+    # ("counter:reddit"); ang default ("total_downloads") ay ang
+    # Facebook counter pa rin (hindi ni-reset ang bilang).
+    key = "counter:reddit" if platform == "reddit" else "total_downloads"
     try:
-        count = redis.get("total_downloads") if redis else 0
+        count = redis.get(key) if redis else 0
         return {"status": "success", "count": int(count) if count else 0}
     except Exception as e:
         return {"status": "success", "count": 0}
 
 @app.post("/api/counter")
-def increment_counter():
+def increment_counter(platform: str = ""):
+    key = "counter:reddit" if platform == "reddit" else "total_downloads"
     try:
-        count = redis.incr("total_downloads") if redis else 1
+        count = redis.incr(key) if redis else 1
         return {"status": "success", "count": int(count)}
     except Exception as e:
         return {"status": "success", "count": 1}
@@ -272,6 +279,93 @@ def list_formats(req: DownloadRequest):
 # system ffmpeg.
 # Kung bot-blocked ang web client, android fallback: direktang link ng
 # single-file 360p ang ibabalik bilang JSON (hindi merge).
+# v11: Reddit — hindi na pwede ang yt-dlp (ngayon, kailangan na ng
+# login: "Account authentication is required"), kaya FreeApi.Pro
+# (no-key, napatunayan) ang resolver: videoUrl -> DASH mp4 +
+# DASH_AUDIO_128.mp4, tapos i-merge ng ffmpeg. Walang tunog ang
+# video-only link, kaya kailangan ang merge — tulad ng YouTube.
+def _merge_reddit(url, ffmpeg_path):
+    sub = ''
+    pid = ''
+    m = re.search(r'reddit\.com/r/([^/]+)/comments/([^/\s?#]+)', url)
+    if m:
+        sub, pid = m.group(1), m.group(2)
+    else:
+        m2 = re.search(r'redd\.it/([A-Za-z0-9]+)', url)
+        if m2:
+            pid = m2.group(1)
+    try:
+        r = requests.get('https://freeapi.pro/api/alldl', params={'url': url},
+                         timeout=30, headers={'User-Agent': 'Mozilla/5.0'})
+        data = r.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Hindi makontak ang Reddit resolver. Subukan ulit mamaya.")
+    media = (data or {}).get('mediaInfo') or {}
+    video_url = media.get('videoUrl') or ''
+    dash = ''
+    if video_url:
+        qs = urllib.parse.urlparse(video_url).query
+        vv = urllib.parse.parse_qs(qs).get('video_url') or []
+        dash = vv[0] if vv else ''
+    if not dash:
+        raise HTTPException(status_code=400, detail="Hindi makuha ang video ng Reddit post na ito. Siguraduhing public video post ang link.")
+    parsed = urllib.parse.urlparse(dash)
+    base_path = parsed.path.rsplit('/', 1)[0]
+    audio_url = f"{parsed.scheme}://{parsed.netloc}{base_path}/DASH_AUDIO_128.mp4"
+    tmpdir = tempfile.mkdtemp(prefix="alldl-reddit-")
+    try:
+        vpath = os.path.join(tmpdir, 'video.mp4')
+        apath = os.path.join(tmpdir, 'audio.mp4')
+        total = 0
+        with requests.get(dash, stream=True, timeout=60, headers={'User-Agent': 'Mozilla/5.0'}) as resp:
+            if resp.status_code != 200:
+                raise HTTPException(status_code=400, detail="Hindi ma-download ang Reddit video. Subukan ulit mamaya.")
+            with open(vpath, 'wb') as f:
+                for chunk in resp.iter_content(chunk_size=1024 * 1024):
+                    if chunk:
+                        f.write(chunk)
+                        total += len(chunk)
+                        if total > 400_000_000:
+                            raise HTTPException(status_code=400, detail="Masyadong malaki ang file para i-merge sa free server (humigit ~400MB).")
+        if os.path.getsize(vpath) < 10000:
+            raise HTTPException(status_code=400, detail="Hindi makuha ang video ng Reddit post na ito.")
+        # Audio: kung walang audio ang post (o 404 ang DASH_AUDIO),
+        # video-only pa rin ang ibalik — hindi error.
+        has_audio = False
+        try:
+            with requests.get(audio_url, stream=True, timeout=60, headers={'User-Agent': 'Mozilla/5.0'}) as resp:
+                if resp.status_code == 200:
+                    with open(apath, 'wb') as f:
+                        for chunk in resp.iter_content(chunk_size=1024 * 1024):
+                            if chunk:
+                                f.write(chunk)
+                    has_audio = os.path.getsize(apath) >= 1000
+        except Exception:
+            has_audio = False
+        out = os.path.join(tmpdir, 'merged.mp4')
+        if has_audio:
+            proc = subprocess.run([ffmpeg_path, '-y', '-i', vpath, '-i', apath,
+                                   '-c:v', 'copy', '-c:a', 'aac', '-movflags', '+faststart', out],
+                                  capture_output=True, timeout=300)
+            if proc.returncode != 0 or not os.path.exists(out) or os.path.getsize(out) < 10000:
+                raise HTTPException(status_code=400, detail="Hindi ma-merge ang Reddit video. Subukan ulit mamaya.")
+        else:
+            shutil.copyfile(vpath, out)
+        name = f"reddit-{sub}-{pid}" if pid else "reddit-video"
+        name = re.sub(r'[\\/:*?"<>|]', '', name).strip() or 'reddit-video'
+        return FileResponse(
+            out,
+            media_type='video/mp4',
+            filename=f"{name}.mp4",
+            background=BackgroundTask(shutil.rmtree, tmpdir, True),
+        )
+    except HTTPException:
+        shutil.rmtree(tmpdir, ignore_errors=True)
+        raise
+    except Exception as e:
+        shutil.rmtree(tmpdir, ignore_errors=True)
+        raise HTTPException(status_code=400, detail=friendly_err(e))
+
 @app.post("/api/download-merged")
 def download_merged(req: DownloadRequest):
     ffmpeg_path = shutil.which("ffmpeg")
@@ -286,6 +380,10 @@ def download_merged(req: DownloadRequest):
             status_code=400,
             detail="Merge not available: ffmpeg is not installed on this server.",
         )
+    # v11: Reddit — FreeApi.Pro + ffmpeg merge (hindi yt-dlp; kailangan
+    # na ng login ang yt-dlp Reddit extractor).
+    if "reddit.com" in req.url or "redd.it" in req.url:
+        return _merge_reddit(req.url, ffmpeg_path)
     is_youtube = "youtube.com" in req.url or "youtu.be" in req.url
     q = req.quality or 'best'
     # v7: ang AUDIO ay laging m4a/aac lang — ang bundled ffmpeg 4.2 ay
