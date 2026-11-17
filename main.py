@@ -9,6 +9,7 @@ import re
 import shutil
 import tempfile
 import time
+import math
 import requests
 from upstash_redis import Redis
 # v9: ang raw yt-dlp error (bot check + wiki links) ay hindi na
@@ -24,6 +25,13 @@ def friendly_err(e):
     if 'video unavailable' in low or 'private video' in low:
         return "Hindi available ang video na ito (private o tinanggal)."
     return msg
+
+    def _cap_dim(q):
+    # v10: '1080p' -> 1920. Ang cap ay ang MALAKING dimension (16:9),
+    # para gumana sa portrait (1080x1920) at landscape (1920x1080).
+    m = re.fullmatch(r'(\d+)p', q or ''
+    n = min(int(m.group(1)), 4320) if m else 4320
+    return math.ceil(n * 16 / 9)
 
 app = FastAPI()
 
@@ -85,8 +93,8 @@ def download_video(req: DownloadRequest):
         # nagbabago — dating format mapping pa rin ang gamit sa baba.
         _m = re.fullmatch(r'(\d+)p', req.quality or '')
         if _m:
-            _cap = min(int(_m.group(1)), 4320)
-            ydl_opts['format'] = f'best[height<={_cap}][ext=mp4]/best[height<={_cap}][ext=mp4]/best'
+            _d = _cap_dim(req.quality)
+            ydl_opts['format'] = f'best[height<={_d}][width<={_d}][ext=mp4]/best[height<={_d}][width<={_d}][ext=mp4]/best'
         elif req.quality == 'worst':
             ydl_opts['format'] = 'worst[ext=mp4]/worst'
         elif req.quality == 'mp3':
@@ -100,8 +108,8 @@ def download_video(req: DownloadRequest):
     else:
         _m = re.fullmatch(r'(\d+)p', req.quality or '')
         if _m:
-            _cap = min(int(_m.group(1)), 4320)
-            ydl_opts['format'] = f'bestvideo[height<={_cap}]+bestaudio/best[height<={_cap}]'
+            _d = _cap_dim(req.quality)
+            ydl_opts['format'] = f'bestvideo[height<={_d}][width<={_d}]+bestaudio/best[height<={_d}][width<={_d}]'
         else:
             ydl_opts['format'] = 'best'
 
@@ -118,17 +126,26 @@ def download_video(req: DownloadRequest):
     if info is None:
         raise HTTPException(status_code=400, detail=friendly_err(last_err))
     download_url = info.get('url')
-    return {
-        "status": "success",
-        "download_url": download_url,
-        "video_info": {
-            "title": info.get('title'),
-            "duration": info.get('duration_string'),
-            "uploader": info.get('uploader'),
-            "view_count": info.get('view_count'),
-            "thumbnail": info.get('thumbnail')
+    if not download_url:
+        # v10: dati, success + null URL ang bumabalik pag multi-format
+        # ang selection (hal. FB 1080p) — sirang download button yun.
+        # Ngayon, malinaw na 400 na lang.
+        raise HTTPException(status_code=400, detail="Hindi makuha ang download link ng video na ito. Subukan ang ibang quality o subukan ulit mamaya.")
+
+    try:
+        return {
+            "status": "success",
+            "download_url": download_url,
+            "video_info": {
+                "title": info.get('title'),
+                "duration": info.get('duration_string'),
+                "uploader": info.get('uploader'),
+                "view_count": info.get('view_count'),
+                "thumbnail": info.get('thumbnail')
+            }
         }
-    }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=friendly_err(e))
 
 # Anong resolution ang TUNAY na available para sa link na ito?
 # Hindi cap ang binabalik — yung totoong resolution ng file na
@@ -193,11 +210,15 @@ def list_formats(req: DownloadRequest):
         if is_youtube and f.get('ext') != 'mp4':
             continue
         has_video = True
-        h = f.get('height')
-        if h and h <= 4320:  # hanggang 8K (v5) — kung available
-            video_heights.add(int(h))
+            # v10: ang label ay ang MALIIT na dimension (tulad ng YouTube:
+            # 1080x1920 portrait = '1080p', 1920x1080 landscape = '1080p').
+            w = f.get('width')
+            m = min(w, h) if w and h else (h or w)
+            h = f.get('height')
+        if m and m <= 4320:  # hanggang 8K (v5) — kung available
+            video_heights.add(int(m))
             if f.get('ext') == 'mp4' and acodec and acodec != 'none':
-                combined_heights.add(int(h))
+                combined_heights.add(int(m))
 
     available = []
     merged_qualities = []
@@ -205,14 +226,15 @@ def list_formats(req: DownloadRequest):
         available.append('best')
         best_video = max(video_heights) if video_heights else None
         best_combined = max(combined_heights) if combined_heights else None
-        if is_youtube and best_video and best_video != best_combined:
+        if best_video and best_video != best_combined:
+            # v10: pati Facebook — ang 'best' ng FB ay 720p lang pala, ang
+            # 1080p ay hiwalay na video+audio kaya kailangan ng merge.
             merged_qualities.append('best')
     for h in sorted(video_heights, reverse=True):
-                    available.append(f'{h}p')
-                    if is_youtube:
-                            cbelow = [c for c in combined_heights if c <= h]
-                if not cbelow or max(cbelow) != h:
-                    merged_qualities.append(f'{h}p')
+        available.append(f'{h}p')
+        cbelow = [c for c in combined_heights if c <= h]
+        if not cbelow or max(cbelow) != h:
+            merged_qualities.append(f'{h}p')
     best_height = max(video_heights) if video_heights else None
     return {
         "status": "success",
@@ -265,8 +287,13 @@ def download_merged(req: DownloadRequest):
     # 4.2 sa MP4, napatunayan sa local test gamit ang mismong 4.2.2
     # binary). Pag walang mp4 video sa cap, combined mp4 ang fallback.
     _m = re.fullmatch(r'(\d+)p', q or '')
-    _cap = min(int(_m.group(1)), 4320) if _m else 4320
-    fmt = f'bestvideo[height<={_cap}][ext=mp4]+bestaudio[ext=m4a]/best[height<={_cap}][ext=mp4]/best[height<={_cap}]'
+    # v10: D-cap (malaking dimension) + audio fallback: m4a muna, tapos
+    # kahit anong audio (para sa Facebook na hindi m4a ang audio).
+    _d = _cap_dim(q)
+    fmt = (f'bestvideo[height<={_d}][width<={_d}][ext=mp4]+bestaudio[ext=m4a]'
+                 f'/bestvideo[height<={_d}][width<={_d}][ext=mp4]+bestaudio'
+             f'/best[height<={_d}][width<={_d}][ext=mp4]/best[height<={_d}][width<={_d}]')
+
 
     # 1) Alamin kung gumagana ang web client (at gaano kahaba/kalaki ang
     #    video) bago mag-download. Pag bot-blocked, android fallback.
