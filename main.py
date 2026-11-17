@@ -8,8 +8,22 @@ import os
 import re
 import shutil
 import tempfile
+import time
 import requests
 from upstash_redis import Redis
+# v9: ang raw yt-dlp error (bot check + wiki links) ay hindi na
+# ipinapakita sa user — maikling Tagalog message na lang.
+BOT_MSG = "Na-block ng YouTube ang server ngayon (bot check). Subukan ulit mamaya, o 360p/MP3 muna."
+def friendly_err(e):
+    msg = str(e)
+    low = msg.lower()
+    if 'sign in to confirm' in low or 'not a bot' in low:
+        return BOT_MSG
+    if 'requested format is not available' in low:
+        return "Hindi makuha ang video na ito ngayon. Subukan ang ibang quality o subukan ulit mamaya."
+    if 'video unavailable' in low or 'private video' in low:
+        return "Hindi available ang video na ito (private o tinanggal)."
+    return msg
 
 app = FastAPI()
 
@@ -69,47 +83,52 @@ def download_video(req: DownloadRequest):
         # formats (bestvideo+bestaudio) ay walang iisang download URL,
         # kaya download_url: null ang bumabalik. FB links: walang
         # nagbabago — dating format mapping pa rin ang gamit sa baba.
-        if req.quality == '1080p':
-            ydl_opts['format'] = 'best[height<=1080][ext=mp4]/best[height<=1080][ext=mp4]/best'
-        elif req.quality == '720p':
-            ydl_opts['format'] = 'best[height<=720][ext=mp4]/best[height<=720][ext=mp4]/best'
-        elif req.quality == '360p':
-            ydl_opts['format'] = 'best[height<=360][ext=mp4]/best[height<=360][ext=mp4]/best'
+        _m = re.fullmatch(r'(\d+)p', req.quality or '')
+        if _m:
+            _cap = min(int(_m.group(1)), 4320)
+            ydl_opts['format'] = f'best[height<={_cap}][ext=mp4]/best[height<={_cap}][ext=mp4]/best'
         elif req.quality == 'worst':
             ydl_opts['format'] = 'worst[ext=mp4]/worst'
         elif req.quality == 'mp3':
             ydl_opts['format'] = 'bestaudio/best'
         else:  # best
             ydl_opts['format'] = 'best[ext=mp4]/best[ext=mp4]/best'
-    elif req.quality == '1080p':
-        ydl_opts['format'] = 'bestvideo[height<=1080]+bestaudio/best[height<=1080]'
-    elif req.quality == '720p':
-        ydl_opts['format'] = 'bestvideo[height<=720]+bestaudio/best[height<=720]'
-    elif req.quality == '360p':
-        ydl_opts['format'] = 'bestvideo[height<=360]+bestaudio/best[height<=360]'
     elif req.quality == 'worst':
         ydl_opts['format'] = 'worst'
     elif req.quality == 'mp3':
         ydl_opts['format'] = 'bestaudio/best'
+    else:
+        _m = re.fullmatch(r'(\d+)p', req.quality or '')
+        if _m:
+            _cap = min(int(_m.group(1)), 4320)
+            ydl_opts['format'] = f'bestvideo[height<={_cap}]+bestaudio/best[height<={_cap}]'
+        else:
+            ydl_opts['format'] = 'best'
 
-    try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(req.url, download=False)
-            download_url = info.get('url')
-            
-            return {
-                "status": "success",
-                "download_url": download_url,
-                "video_info": {
-                    "title": info.get('title'),
-                    "duration": info.get('duration_string'),
-                    "uploader": info.get('uploader'),
-                    "view_count": info.get('view_count'),
-                    "thumbnail": info.get('thumbnail')
-                }
-            }
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    info = None
+    last_err = None
+    for _ in range(2 if is_youtube else 1):
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(req.url, download=False)
+            break
+        except Exception as e:
+            last_err = e
+            time.sleep(1)
+    if info is None:
+        raise HTTPException(status_code=400, detail=friendly_err(last_err))
+    download_url = info.get('url')
+    return {
+        "status": "success",
+        "download_url": download_url,
+        "video_info": {
+            "title": info.get('title'),
+            "duration": info.get('duration_string'),
+            "uploader": info.get('uploader'),
+            "view_count": info.get('view_count'),
+            "thumbnail": info.get('thumbnail')
+        }
+    }
 
 # Anong resolution ang TUNAY na available para sa link na ito?
 # Hindi cap ang binabalik — yung totoong resolution ng file na
@@ -143,7 +162,8 @@ def list_formats(req: DownloadRequest):
         {'format': merge_fmt, 'skip_download': True},
     ]
     if is_youtube:
-        clients.append({'format': 'best', 'skip_download': True, 'extractor_args': {'youtube': {'player_client': ['android']}}})
+        android = {'format': 'best', 'skip_download': True, 'extractor_args': {'youtube': {'player_client': ['android']}}}
+        clients.extend([android, android, android])
     else:
         clients.append({'format': 'best', 'skip_download': True})
     for extra in clients:
@@ -154,8 +174,9 @@ def list_formats(req: DownloadRequest):
             break
         except Exception as e:
             last_err = e
+            time.sleep(1)
     if info is None:
-        raise HTTPException(status_code=400, detail=str(last_err))
+        raise HTTPException(status_code=400, detail=friendly_err(last_err))
 
     video_heights = set()
     combined_heights = set()
@@ -186,14 +207,12 @@ def list_formats(req: DownloadRequest):
         best_combined = max(combined_heights) if combined_heights else None
         if is_youtube and best_video and best_video != best_combined:
             merged_qualities.append('best')
-    for cap in (4320, 2160, 1080, 720, 360):
-        below = [h for h in video_heights if h <= cap]
-        if below and max(below) == cap:
-            available.append(f'{cap}p')
-            if is_youtube:
-                cbelow = [h for h in combined_heights if h <= cap]
-                if not cbelow or max(cbelow) != cap:
-                    merged_qualities.append(f'{cap}p')
+    for h in sorted(video_heights, reverse=True):
+                    available.append(f'{h}p')
+                    if is_youtube:
+                            cbelow = [c for c in combined_heights if c <= h]
+                if not cbelow or max(cbelow) != h:
+                    merged_qualities.append(f'{h}p')
     best_height = max(video_heights) if video_heights else None
     return {
         "status": "success",
@@ -245,24 +264,16 @@ def download_merged(req: DownloadRequest):
     # bestvideo pa rin (av1 o avc1 — parehong kayang i-mux ng ffmpeg
     # 4.2 sa MP4, napatunayan sa local test gamit ang mismong 4.2.2
     # binary). Pag walang mp4 video sa cap, combined mp4 ang fallback.
-    if q == '4320p':
-        fmt = 'bestvideo[height<=4320][ext=mp4]+bestaudio[ext=m4a]/best[height<=4320][ext=mp4]/best[height<=4320]'
-    elif q == '2160p':
-        fmt = 'bestvideo[height<=2160][ext=mp4]+bestaudio[ext=m4a]/best[height<=2160][ext=mp4]/best[height<=2160]'
-    elif q == '1080p':
-        fmt = 'bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080][ext=mp4]/best[height<=1080]'
-    elif q == '720p':
-        fmt = 'bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]/best[height<=720]'
-    elif q == '360p':
-        fmt = 'bestvideo[height<=360][ext=mp4]+bestaudio[ext=m4a]/best[height<=360][ext=mp4]/best[height<=360]'
-    else:  # best — hanggang 8K kung available
-        fmt = 'bestvideo[height<=4320][ext=mp4]+bestaudio[ext=m4a]/best[height<=4320][ext=mp4]/best[height<=4320]'
+    _m = re.fullmatch(r'(\d+)p', q or '')
+    _cap = min(int(_m.group(1)), 4320) if _m else 4320
+    fmt = f'bestvideo[height<={_cap}][ext=mp4]+bestaudio[ext=m4a]/best[height<={_cap}][ext=mp4]/best[height<={_cap}]'
 
     # 1) Alamin kung gumagana ang web client (at gaano kahaba/kalaki ang
     #    video) bago mag-download. Pag bot-blocked, android fallback.
     clients = [{}]
     if is_youtube:
-        clients.append({'extractor_args': {'youtube': {'player_client': ['android']}}})
+        android = {'extractor_args': {'youtube': {'player_client': ['android']}}}
+        clients.extend([android, android, android])
     info = None
     used_android = False
     last_err = None
@@ -274,8 +285,9 @@ def download_merged(req: DownloadRequest):
             break
         except Exception as e:
             last_err = e
+            time.sleep(1)
     if info is None:
-        raise HTTPException(status_code=400, detail=str(last_err))
+        raise HTTPException(status_code=400, detail=friendly_err(last_err))
     duration = info.get('duration') or 0
     if duration > 900:
         raise HTTPException(
@@ -347,7 +359,7 @@ def download_merged(req: DownloadRequest):
         raise
     except Exception as e:
         shutil.rmtree(tmpdir, ignore_errors=True)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=friendly_err(e))
 
 @app.get("/api/proxy-download")
 def proxy_download(url: str, filename: str = "video.mp4"):
