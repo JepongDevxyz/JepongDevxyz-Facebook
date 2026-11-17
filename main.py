@@ -132,11 +132,22 @@ def list_formats(req: DownloadRequest):
     last_err = None
     # YouTube: web client muna (DASH heights); pag bot-blocked,
     # android fallback (single-file 360p lang ang makikita).
-    clients = [{}]
+    # v8: ang web attempt ay gumagamit ng PAREHONG format selector
+    # gaya ng merge endpoint ('best' lang dati) — sa live test, ang
+    # merge extract ay gumagana 5/5 habang ang formats extract na
+    # 'best' lang ay bumabagsak 3/3, kaya pareho na sila ngayon.
+    # Dalawang beses susubukan ang web bago mag-android fallback.
+    merge_fmt = 'bestvideo[height<=4320][ext=mp4]+bestaudio[ext=m4a]/best[height<=4320][ext=mp4]/best[height<=4320]'
+    clients = [
+        {'format': merge_fmt, 'skip_download': True},
+        {'format': merge_fmt, 'skip_download': True},
+    ]
     if is_youtube:
-        clients.append({'extractor_args': {'youtube': {'player_client': ['android']}}})
+        clients.append({'format': 'best', 'skip_download': True, 'extractor_args': {'youtube': {'player_client': ['android']}}})
+    else:
+        clients.append({'format': 'best', 'skip_download': True})
     for extra in clients:
-        ydl_opts = {'format': 'best', 'skip_download': True, **extra}
+        ydl_opts = {'format': 'best', **extra}
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(req.url, download=False)
