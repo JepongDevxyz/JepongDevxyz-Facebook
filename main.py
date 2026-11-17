@@ -212,9 +212,9 @@ def list_formats(req: DownloadRequest):
         has_video = True
             # v10: ang label ay ang MALIIT na dimension (tulad ng YouTube:
             # 1080x1920 portrait = '1080p', 1920x1080 landscape = '1080p').
-            w = f.get('width')
-            m = min(w, h) if w and h else (h or w)
+        w = f.get('width')
             h = f.get('height')
+        m = min(w, h) if w and h else (h or w)
         if m and m <= 4320:  # hanggang 8K (v5) — kung available
             video_heights.add(int(m))
             if f.get('ext') == 'mp4' and acodec and acodec != 'none':
