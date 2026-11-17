@@ -201,11 +201,21 @@ def list_formats(req: DownloadRequest):
 # ~400MB lang ang file (free server limits — pag lumampas, malinaw na
 # 400 ang ibabalik, hindi tahimik na fail). Kung walang ffmpeg sa
 # server, malinaw na 400 rin ang ibabalik.
+# v6: walang ffmpeg ang Vercel serverless — kaya imageio-ffmpeg ang
+# gamit (pip package na may kasamang static ffmpeg binary) pag walang
+# system ffmpeg.
 # Kung bot-blocked ang web client, android fallback: direktang link ng
 # single-file 360p ang ibabalik bilang JSON (hindi merge).
 @app.post("/api/download-merged")
 def download_merged(req: DownloadRequest):
-    if not shutil.which("ffmpeg"):
+    ffmpeg_path = shutil.which("ffmpeg")
+    if not ffmpeg_path:
+        try:
+            import imageio_ffmpeg
+            ffmpeg_path = imageio_ffmpeg.get_ffmpeg_exe()
+        except Exception:
+            ffmpeg_path = None
+    if not ffmpeg_path:
         raise HTTPException(
             status_code=400,
             detail="Merge not available: ffmpeg is not installed on this server.",
@@ -289,6 +299,7 @@ def download_merged(req: DownloadRequest):
             'format': fmt,
             'outtmpl': os.path.join(tmpdir, 'video.%(ext)s'),
             'merge_output_format': 'mp4',
+            'ffmpeg_location': ffmpeg_path,
             'quiet': True,
             'no_warnings': True,
         }
