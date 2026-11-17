@@ -67,6 +67,11 @@ def get_counter(platform: str = ""):
     # v11: per-platform counter — 'reddit' lang ang may sariling key
     # ("counter:reddit"); ang default ("total_downloads") ay ang
     # Facebook counter pa rin (hindi ni-reset ang bilang).
+    # TANDAAN (2026-11-18): ang live /api/counter ay HINDI ito ang
+    # nagsisilbi — Vercel filesystem routing: api/counter.js (standalone,
+    # key "global_downloads") ang sumasalo sa /api/counter, kaya ang
+    # platform support ay nasa api/counter.js din. Itong FastAPI counter
+    # ay fallback lang at hindi naaabot sa live.
     key = "counter:reddit" if platform == "reddit" else "total_downloads"
     try:
         count = redis.get(key) if redis else 0
@@ -294,14 +299,27 @@ def _merge_reddit(url, ffmpeg_path):
         m2 = re.search(r'redd\.it/([A-Za-z0-9]+)', url)
         if m2:
             pid = m2.group(1)
-    try:
-        r = requests.get('https://freeapi.pro/api/alldl', params={'url': url},
-                         timeout=30, headers={'User-Agent': 'Mozilla/5.0'})
-        data = r.json()
-    except Exception:
+    # v11: FreeApi.Pro minsan bumabagsak (rapidsave timeout + reddit-json
+    # 403 — pabugso-bugso), kaya 2 attempts na may 15s timeout bawat isa
+    # (kapag healthy, 1-2s lang ang sagot; ang 15s ay para hindi maubos
+    # ang 60s serverless limit sa dalawang bagsak na attempt).
+    data = None
+    video_url = ''
+    for attempt in range(2):
+        try:
+            r = requests.get('https://freeapi.pro/api/alldl', params={'url': url},
+                             timeout=15, headers={'User-Agent': 'Mozilla/5.0'})
+            data = r.json()
+        except Exception:
+            data = None
+        media = (data or {}).get('mediaInfo') or {}
+        video_url = media.get('videoUrl') or ''
+        if video_url:
+            break
+        if attempt == 0:
+            time.sleep(2)
+    if not data:
         raise HTTPException(status_code=400, detail="Hindi makontak ang Reddit resolver. Subukan ulit mamaya.")
-    media = (data or {}).get('mediaInfo') or {}
-    video_url = media.get('videoUrl') or ''
     dash = ''
     if video_url:
         qs = urllib.parse.urlparse(video_url).query
