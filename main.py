@@ -154,6 +154,12 @@ def list_formats(req: DownloadRequest):
         acodec = f.get('acodec')
         if not vcodec or vcodec == 'none':
             continue
+        # v7: sa YouTube, mp4 video lang ang binibilang — yun lang ang
+        # kayang i-merge ng server bilang MP4 (ang webm/vp9/opus ay
+        # hindi kayang i-mux ng ffmpeg 4.2 sa MP4). Sa Facebook, mp4
+        # naman lahat, kaya walang filter doon.
+        if is_youtube and f.get('ext') != 'mp4':
+            continue
         has_video = True
         h = f.get('height')
         if h and h <= 4320:  # hanggang 8K (v5) — kung available
@@ -222,18 +228,24 @@ def download_merged(req: DownloadRequest):
         )
     is_youtube = "youtube.com" in req.url or "youtu.be" in req.url
     q = req.quality or 'best'
+    # v7: ang AUDIO ay laging m4a/aac lang — ang bundled ffmpeg 4.2 ay
+    # HINDI kayang i-mux ang opus audio sa MP4 (yun ang "Postprocessing"
+    # error ng v6: bestaudio ang pinili ay opus 251). Ang video ay
+    # bestvideo pa rin (av1 o avc1 — parehong kayang i-mux ng ffmpeg
+    # 4.2 sa MP4, napatunayan sa local test gamit ang mismong 4.2.2
+    # binary). Pag walang mp4 video sa cap, combined mp4 ang fallback.
     if q == '4320p':
-        fmt = 'bestvideo[height<=4320]+bestaudio/best[height<=4320]'
+        fmt = 'bestvideo[height<=4320][ext=mp4]+bestaudio[ext=m4a]/best[height<=4320][ext=mp4]/best[height<=4320]'
     elif q == '2160p':
-        fmt = 'bestvideo[height<=2160]+bestaudio/best[height<=2160]'
+        fmt = 'bestvideo[height<=2160][ext=mp4]+bestaudio[ext=m4a]/best[height<=2160][ext=mp4]/best[height<=2160]'
     elif q == '1080p':
-        fmt = 'bestvideo[height<=1080]+bestaudio/best[height<=1080]'
+        fmt = 'bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080][ext=mp4]/best[height<=1080]'
     elif q == '720p':
-        fmt = 'bestvideo[height<=720]+bestaudio/best[height<=720]'
+        fmt = 'bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]/best[height<=720]'
     elif q == '360p':
-        fmt = 'bestvideo[height<=360]+bestaudio/best[height<=360]'
+        fmt = 'bestvideo[height<=360][ext=mp4]+bestaudio[ext=m4a]/best[height<=360][ext=mp4]/best[height<=360]'
     else:  # best — hanggang 8K kung available
-        fmt = 'bestvideo[height<=4320]+bestaudio/best[height<=4320]'
+        fmt = 'bestvideo[height<=4320][ext=mp4]+bestaudio[ext=m4a]/best[height<=4320][ext=mp4]/best[height<=4320]'
 
     # 1) Alamin kung gumagana ang web client (at gaano kahaba/kalaki ang
     #    video) bago mag-download. Pag bot-blocked, android fallback.
