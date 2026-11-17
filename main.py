@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, StreamingResponse, FileResponse
-from fastapi.background import BackgroundTask
+from starlette.background import BackgroundTask  # BackgroundTask is in starlette, NOT fastapi.background (fastapi.background has only BackgroundTasks) — maling import dito = crash ang buong app sa startup, lahat ng /api/* 500
 from pydantic import BaseModel
 import yt_dlp
 import os
@@ -122,7 +122,7 @@ def download_video(req: DownloadRequest):
 # Ang 1080p/720p/360p ay available lang kung yung pinakamataas na
 # format na pasok sa cap ay EXACTLY yung cap na yun.
 # v4: para sa YouTube, web client na ang gamit (DASH heights — yun ang
-# tunay na resolution; hanggang 1080p lang ang merge sa free server).
+# tunay na resolution; hanggang 8K (4320p) kung available — v5).
 # `merged_qualities` = yung qualities na kailangan ng server-side merge
 # (hiwalay ang video at audio); yung wala dito, direktang link lang.
 @app.post("/api/formats")
@@ -156,7 +156,7 @@ def list_formats(req: DownloadRequest):
             continue
         has_video = True
         h = f.get('height')
-        if h and h <= 1080:  # merge hanggang 1080p lang (free server)
+        if h and h <= 4320:  # hanggang 8K (v5) — kung available
             video_heights.add(int(h))
             if f.get('ext') == 'mp4' and acodec and acodec != 'none':
                 combined_heights.add(int(h))
@@ -169,7 +169,7 @@ def list_formats(req: DownloadRequest):
         best_combined = max(combined_heights) if combined_heights else None
         if is_youtube and best_video and best_video != best_combined:
             merged_qualities.append('best')
-    for cap in (1080, 720, 360):
+    for cap in (4320, 2160, 1080, 720, 360):
         below = [h for h in video_heights if h <= cap]
         if below and max(below) == cap:
             available.append(f'{cap}p')
@@ -196,9 +196,11 @@ def list_formats(req: DownloadRequest):
 
 # Tunay na resolution: i-download ang video + audio, i-merge gamit ang
 # ffmpeg, at i-stream ang buong MP4 file. Para ito sa mga quality na
-# walang single-file MP4 (hal. YouTube 720p/1080p — DASH lang sila).
-# Hanggang 1080p at 15 minuto lang (free server limits). Kung walang
-# ffmpeg sa server, malinaw na 400 ang ibabalik (hindi tahimik na fail).
+# walang single-file MP4 (hal. YouTube 720p/1080p/4K/8K — DASH lang sila).
+# Hanggang 8K (4320p) kung available (v5), 15 minuto lang ang video, at
+# ~400MB lang ang file (free server limits — pag lumampas, malinaw na
+# 400 ang ibabalik, hindi tahimik na fail). Kung walang ffmpeg sa
+# server, malinaw na 400 rin ang ibabalik.
 # Kung bot-blocked ang web client, android fallback: direktang link ng
 # single-file 360p ang ibabalik bilang JSON (hindi merge).
 @app.post("/api/download-merged")
@@ -210,17 +212,21 @@ def download_merged(req: DownloadRequest):
         )
     is_youtube = "youtube.com" in req.url or "youtu.be" in req.url
     q = req.quality or 'best'
-    if q == '1080p':
+    if q == '4320p':
+        fmt = 'bestvideo[height<=4320]+bestaudio/best[height<=4320]'
+    elif q == '2160p':
+        fmt = 'bestvideo[height<=2160]+bestaudio/best[height<=2160]'
+    elif q == '1080p':
         fmt = 'bestvideo[height<=1080]+bestaudio/best[height<=1080]'
     elif q == '720p':
         fmt = 'bestvideo[height<=720]+bestaudio/best[height<=720]'
     elif q == '360p':
         fmt = 'bestvideo[height<=360]+bestaudio/best[height<=360]'
-    else:  # best — hanggang 1080p lang ang merge
-        fmt = 'bestvideo[height<=1080]+bestaudio/best[height<=1080]'
+    else:  # best — hanggang 8K kung available
+        fmt = 'bestvideo[height<=4320]+bestaudio/best[height<=4320]'
 
-    # 1) Alamin kung gumagana ang web client (at gaano kahaba ang video)
-    #    bago mag-download. Pag bot-blocked, android fallback na lang.
+    # 1) Alamin kung gumagana ang web client (at gaano kahaba/kalaki ang
+    #    video) bago mag-download. Pag bot-blocked, android fallback.
     clients = [{}]
     if is_youtube:
         clients.append({'extractor_args': {'youtube': {'player_client': ['android']}}})
@@ -229,7 +235,7 @@ def download_merged(req: DownloadRequest):
     last_err = None
     for extra in clients:
         try:
-            with yt_dlp.YoutubeDL({'format': 'best', 'skip_download': True, **extra}) as ydl:
+            with yt_dlp.YoutubeDL({'format': fmt, 'skip_download': True, **extra}) as ydl:
                 info = ydl.extract_info(req.url, download=False)
             used_android = bool(extra)
             break
@@ -243,6 +249,21 @@ def download_merged(req: DownloadRequest):
             status_code=400,
             detail="Masyadong mahaba ang video para i-merge (higit 15 minuto). Subukan ang 360p o MP3.",
         )
+    if not used_android:
+        # Tantya ng laki ng video+audio na mada-download (free server
+        # lang ito — pag ~400MB pataas, baka hindi kayanin ng box).
+        total_size = 0
+        sized = False
+        for f in info.get('requested_formats') or []:
+            sz = f.get('filesize') or f.get('filesize_approx')
+            if sz:
+                total_size += int(sz)
+                sized = True
+        if sized and total_size > 400_000_000:
+            raise HTTPException(
+                status_code=400,
+                detail="Masyadong malaki ang file para i-merge sa free server (humigit ~400MB). Subukan ang mas mababang resolution.",
+            )
     if used_android:
         # Single-file lang ang kaya — ibalik ang direktang link.
         url = info.get('url')
