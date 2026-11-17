@@ -54,6 +54,13 @@ def download_video(req: DownloadRequest):
     is_youtube = "youtube.com" in req.url or "youtu.be" in req.url
     ydl_opts = {'format': 'best'}
     if is_youtube:
+        # YouTube: android player client lang ang nakakakita ng
+        # single-file MP4 (format 18, 360p). Ang default web client
+        # ay DASH-only na (walang combined format) kaya "Requested
+        # format is not available" lang ang error. Tandaan: 360p lang
+        # ang combined MP4 na binibigay ng YouTube dito — walang
+        # 720p/1080p single-file; yun ay DASH at kailangan ng merge.
+        ydl_opts['extractor_args'] = {'youtube': {'player_client': ['android']}}
         # YouTube: single-file MP4 lang ang pipiliin. Ang merged DASH
         # formats (bestvideo+bestaudio) ay walang iisang download URL,
         # kaya download_url: null ang bumabalik. FB links: walang
