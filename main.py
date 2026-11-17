@@ -1,9 +1,13 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, StreamingResponse, FileResponse
+from fastapi.background import BackgroundTask
 from pydantic import BaseModel
 import yt_dlp
 import os
+import re
+import shutil
+import tempfile
 import requests
 from upstash_redis import Redis
 
@@ -117,19 +121,33 @@ def download_video(req: DownloadRequest):
 # Ang "best" ay available kung may kahit anong video na mada-download.
 # Ang 1080p/720p/360p ay available lang kung yung pinakamataas na
 # format na pasok sa cap ay EXACTLY yung cap na yun.
+# v4: para sa YouTube, web client na ang gamit (DASH heights — yun ang
+# tunay na resolution; hanggang 1080p lang ang merge sa free server).
+# `merged_qualities` = yung qualities na kailangan ng server-side merge
+# (hiwalay ang video at audio); yung wala dito, direktang link lang.
 @app.post("/api/formats")
 def list_formats(req: DownloadRequest):
     is_youtube = "youtube.com" in req.url or "youtu.be" in req.url
-    ydl_opts = {'format': 'best', 'skip_download': True}
+    info = None
+    last_err = None
+    # YouTube: web client muna (DASH heights); pag bot-blocked,
+    # android fallback (single-file 360p lang ang makikita).
+    clients = [{}]
     if is_youtube:
-        ydl_opts['extractor_args'] = {'youtube': {'player_client': ['android']}}
-    try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(req.url, download=False)
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        clients.append({'extractor_args': {'youtube': {'player_client': ['android']}}})
+    for extra in clients:
+        ydl_opts = {'format': 'best', 'skip_download': True, **extra}
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(req.url, download=False)
+            break
+        except Exception as e:
+            last_err = e
+    if info is None:
+        raise HTTPException(status_code=400, detail=str(last_err))
 
-    heights = set()
+    video_heights = set()
+    combined_heights = set()
     has_video = False
     for f in info.get('formats') or []:
         vcodec = f.get('vcodec')
@@ -137,27 +155,35 @@ def list_formats(req: DownloadRequest):
         if not vcodec or vcodec == 'none':
             continue
         has_video = True
-        if is_youtube:
-            # Single-file MP4 lang ang may direktang download URL.
-            if f.get('ext') != 'mp4' or not acodec or acodec == 'none':
-                continue
         h = f.get('height')
-        if h:
-            heights.add(int(h))
+        if h and h <= 1080:  # merge hanggang 1080p lang (free server)
+            video_heights.add(int(h))
+            if f.get('ext') == 'mp4' and acodec and acodec != 'none':
+                combined_heights.add(int(h))
 
     available = []
+    merged_qualities = []
     if has_video:
         available.append('best')
+        best_video = max(video_heights) if video_heights else None
+        best_combined = max(combined_heights) if combined_heights else None
+        if is_youtube and best_video and best_video != best_combined:
+            merged_qualities.append('best')
     for cap in (1080, 720, 360):
-        below = [h for h in heights if h <= cap]
+        below = [h for h in video_heights if h <= cap]
         if below and max(below) == cap:
             available.append(f'{cap}p')
-    best_height = max(heights) if heights else None
+            if is_youtube:
+                cbelow = [h for h in combined_heights if h <= cap]
+                if not cbelow or max(cbelow) != cap:
+                    merged_qualities.append(f'{cap}p')
+    best_height = max(video_heights) if video_heights else None
     return {
         "status": "success",
         "platform": "youtube" if is_youtube else "facebook",
         "title": info.get('title'),
         "available": available,
+        "merged_qualities": merged_qualities,
         "best_height": best_height,
         "video_info": {
             "title": info.get('title'),
@@ -167,6 +193,106 @@ def list_formats(req: DownloadRequest):
             "thumbnail": info.get('thumbnail')
         }
     }
+
+# Tunay na resolution: i-download ang video + audio, i-merge gamit ang
+# ffmpeg, at i-stream ang buong MP4 file. Para ito sa mga quality na
+# walang single-file MP4 (hal. YouTube 720p/1080p — DASH lang sila).
+# Hanggang 1080p at 15 minuto lang (free server limits). Kung walang
+# ffmpeg sa server, malinaw na 400 ang ibabalik (hindi tahimik na fail).
+# Kung bot-blocked ang web client, android fallback: direktang link ng
+# single-file 360p ang ibabalik bilang JSON (hindi merge).
+@app.post("/api/download-merged")
+def download_merged(req: DownloadRequest):
+    if not shutil.which("ffmpeg"):
+        raise HTTPException(
+            status_code=400,
+            detail="Merge not available: ffmpeg is not installed on this server.",
+        )
+    is_youtube = "youtube.com" in req.url or "youtu.be" in req.url
+    q = req.quality or 'best'
+    if q == '1080p':
+        fmt = 'bestvideo[height<=1080]+bestaudio/best[height<=1080]'
+    elif q == '720p':
+        fmt = 'bestvideo[height<=720]+bestaudio/best[height<=720]'
+    elif q == '360p':
+        fmt = 'bestvideo[height<=360]+bestaudio/best[height<=360]'
+    else:  # best — hanggang 1080p lang ang merge
+        fmt = 'bestvideo[height<=1080]+bestaudio/best[height<=1080]'
+
+    # 1) Alamin kung gumagana ang web client (at gaano kahaba ang video)
+    #    bago mag-download. Pag bot-blocked, android fallback na lang.
+    clients = [{}]
+    if is_youtube:
+        clients.append({'extractor_args': {'youtube': {'player_client': ['android']}}})
+    info = None
+    used_android = False
+    last_err = None
+    for extra in clients:
+        try:
+            with yt_dlp.YoutubeDL({'format': 'best', 'skip_download': True, **extra}) as ydl:
+                info = ydl.extract_info(req.url, download=False)
+            used_android = bool(extra)
+            break
+        except Exception as e:
+            last_err = e
+    if info is None:
+        raise HTTPException(status_code=400, detail=str(last_err))
+    duration = info.get('duration') or 0
+    if duration > 900:
+        raise HTTPException(
+            status_code=400,
+            detail="Masyadong mahaba ang video para i-merge (higit 15 minuto). Subukan ang 360p o MP3.",
+        )
+    if used_android:
+        # Single-file lang ang kaya — ibalik ang direktang link.
+        url = info.get('url')
+        if not url:
+            raise HTTPException(status_code=400, detail="Hindi makuha ang video na ito.")
+        return {
+            "status": "success",
+            "download_url": url,
+            "merged": False,
+            "video_info": {
+                "title": info.get('title'),
+                "duration": info.get('duration_string'),
+                "uploader": info.get('uploader'),
+                "view_count": info.get('view_count'),
+                "thumbnail": info.get('thumbnail')
+            }
+        }
+
+    # 2) Download + merge sa temp dir, tapos i-stream ang file.
+    tmpdir = tempfile.mkdtemp(prefix="alldl-merge-")
+    try:
+        ydl_opts = {
+            'format': fmt,
+            'outtmpl': os.path.join(tmpdir, 'video.%(ext)s'),
+            'merge_output_format': 'mp4',
+            'quiet': True,
+            'no_warnings': True,
+        }
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.extract_info(req.url, download=True)
+        merged = None
+        for name in os.listdir(tmpdir):
+            if name.endswith('.mp4'):
+                merged = os.path.join(tmpdir, name)
+                break
+        if not merged:
+            raise HTTPException(status_code=400, detail="Hindi nabuo ang merged video.")
+        title = re.sub(r'[\\/:*?"<>|]', '', info.get('title') or 'video').strip() or 'video'
+        return FileResponse(
+            merged,
+            media_type='video/mp4',
+            filename=f"{title}.mp4",
+            background=BackgroundTask(shutil.rmtree, tmpdir, True),
+        )
+    except HTTPException:
+        shutil.rmtree(tmpdir, ignore_errors=True)
+        raise
+    except Exception as e:
+        shutil.rmtree(tmpdir, ignore_errors=True)
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.get("/api/proxy-download")
 def proxy_download(url: str, filename: str = "video.mp4"):
