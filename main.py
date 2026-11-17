@@ -51,8 +51,26 @@ def increment_counter():
 
 @app.post("/api/download")
 def download_video(req: DownloadRequest):
+    is_youtube = "youtube.com" in req.url or "youtu.be" in req.url
     ydl_opts = {'format': 'best'}
-    if req.quality == '1080p':
+    if is_youtube:
+        # YouTube: single-file MP4 lang ang pipiliin. Ang merged DASH
+        # formats (bestvideo+bestaudio) ay walang iisang download URL,
+        # kaya download_url: null ang bumabalik. FB links: walang
+        # nagbabago — dating format mapping pa rin ang gamit sa baba.
+        if req.quality == '1080p':
+            ydl_opts['format'] = 'best[height<=1080][ext=mp4]/best[height<=1080][ext=mp4]/best'
+        elif req.quality == '720p':
+            ydl_opts['format'] = 'best[height<=720][ext=mp4]/best[height<=720][ext=mp4]/best'
+        elif req.quality == '360p':
+            ydl_opts['format'] = 'best[height<=360][ext=mp4]/best[height<=360][ext=mp4]/best'
+        elif req.quality == 'worst':
+            ydl_opts['format'] = 'worst[ext=mp4]/worst'
+        elif req.quality == 'mp3':
+            ydl_opts['format'] = 'bestaudio/best'
+        else:  # best
+            ydl_opts['format'] = 'best[ext=mp4]/best[ext=mp4]/best'
+    elif req.quality == '1080p':
         ydl_opts['format'] = 'bestvideo[height<=1080]+bestaudio/best[height<=1080]'
     elif req.quality == '720p':
         ydl_opts['format'] = 'bestvideo[height<=720]+bestaudio/best[height<=720]'
