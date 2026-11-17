@@ -107,6 +107,67 @@ def download_video(req: DownloadRequest):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+# Anong resolution ang TUNAY na available para sa link na ito?
+# Hindi cap ang binabalik — yung totoong resolution ng file na
+# mada-download. Hal. YouTube: tanging format 18 (360p) lang ang
+# combined MP4, kaya "360p" lang ang lalabas kahit 1080p ang pinili
+# mo dati (360p file pa rin ang bumabalik nun — misleading).
+#   YouTube  -> combined mp4 lang (may video AT audio sa iisang file)
+#   Facebook -> kahit anong video format (merged ang download doon)
+# Ang "best" ay available kung may kahit anong video na mada-download.
+# Ang 1080p/720p/360p ay available lang kung yung pinakamataas na
+# format na pasok sa cap ay EXACTLY yung cap na yun.
+@app.post("/api/formats")
+def list_formats(req: DownloadRequest):
+    is_youtube = "youtube.com" in req.url or "youtu.be" in req.url
+    ydl_opts = {'format': 'best', 'skip_download': True}
+    if is_youtube:
+        ydl_opts['extractor_args'] = {'youtube': {'player_client': ['android']}}
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(req.url, download=False)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    heights = set()
+    has_video = False
+    for f in info.get('formats') or []:
+        vcodec = f.get('vcodec')
+        acodec = f.get('acodec')
+        if not vcodec or vcodec == 'none':
+            continue
+        has_video = True
+        if is_youtube:
+            # Single-file MP4 lang ang may direktang download URL.
+            if f.get('ext') != 'mp4' or not acodec or acodec == 'none':
+                continue
+        h = f.get('height')
+        if h:
+            heights.add(int(h))
+
+    available = []
+    if has_video:
+        available.append('best')
+    for cap in (1080, 720, 360):
+        below = [h for h in heights if h <= cap]
+        if below and max(below) == cap:
+            available.append(f'{cap}p')
+    best_height = max(heights) if heights else None
+    return {
+        "status": "success",
+        "platform": "youtube" if is_youtube else "facebook",
+        "title": info.get('title'),
+        "available": available,
+        "best_height": best_height,
+        "video_info": {
+            "title": info.get('title'),
+            "duration": info.get('duration_string'),
+            "uploader": info.get('uploader'),
+            "view_count": info.get('view_count'),
+            "thumbnail": info.get('thumbnail')
+        }
+    }
+
 @app.get("/api/proxy-download")
 def proxy_download(url: str, filename: str = "video.mp4"):
     try:
