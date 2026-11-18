@@ -384,8 +384,73 @@ def _merge_reddit(url, ffmpeg_path):
         shutil.rmtree(tmpdir, ignore_errors=True)
         raise HTTPException(status_code=400, detail=friendly_err(e))
 
+def _download_x(url):
+    # v12: X (Twitter) — FreeApi.Pro resolve (platform 'Twitter'),
+    # direktang MP4 na isang file lang (may audio na — hindi tulad ng
+    # Reddit na hiwalay ang video at audio), kaya WALANG merge at
+    # WALANG ffmpeg. 2 attempts, 15s timeout bawat isa (kapag healthy,
+    # 1-2s lang ang sagot; napatunayan: 9.2MB, 93.6s, 720x720 + aac).
+    user = ''
+    sid = ''
+    m = re.search(r'(?:x\.com|twitter\.com)/([^/\s?#]+)/status/(\d+)', url)
+    if m:
+        user, sid = m.group(1), m.group(2)
+    data = None
+    video_url = ''
+    for attempt in range(2):
+        try:
+            r = requests.get('https://freeapi.pro/api/alldl', params={'url': url},
+                             timeout=15, headers={'User-Agent': 'Mozilla/5.0'})
+            data = r.json()
+        except Exception:
+            data = None
+        media = (data or {}).get('mediaInfo') or {}
+        video_url = media.get('videoUrl') or ''
+        if video_url:
+            break
+        if attempt == 0:
+            time.sleep(2)
+    if not data:
+        raise HTTPException(status_code=400, detail="Hindi makontak ang X resolver. Subukan ulit mamaya.")
+    if not video_url:
+        raise HTTPException(status_code=400, detail="Hindi makuha ang video ng X post na ito. Siguraduhing public video post ang link.")
+    tmpdir = tempfile.mkdtemp(prefix="alldl-x-")
+    try:
+        vpath = os.path.join(tmpdir, 'video.mp4')
+        total = 0
+        with requests.get(video_url, stream=True, timeout=120, headers={'User-Agent': 'Mozilla/5.0'}) as resp:
+            if resp.status_code != 200:
+                raise HTTPException(status_code=400, detail="Hindi ma-download ang X video. Subukan ulit mamaya.")
+            with open(vpath, 'wb') as f:
+                for chunk in resp.iter_content(chunk_size=1024 * 1024):
+                    if chunk:
+                        f.write(chunk)
+                        total += len(chunk)
+                        if total > 400_000_000:
+                            raise HTTPException(status_code=400, detail="Masyadong malaki ang file para i-download sa free server (humigit ~400MB).")
+        if os.path.getsize(vpath) < 10000:
+            raise HTTPException(status_code=400, detail="Hindi makuha ang video ng X post na ito.")
+        name = f"x-{user}-{sid}" if sid else "x-video"
+        name = re.sub(r'[\\/:*?"<>|]', '', name).strip() or 'x-video'
+        return FileResponse(
+            vpath,
+            media_type='video/mp4',
+            filename=f"{name}.mp4",
+            background=BackgroundTask(shutil.rmtree, tmpdir, True),
+        )
+    except HTTPException:
+        shutil.rmtree(tmpdir, ignore_errors=True)
+        raise
+    except Exception as e:
+        shutil.rmtree(tmpdir, ignore_errors=True)
+        raise HTTPException(status_code=400, detail=friendly_err(e))
+
 @app.post("/api/download-merged")
 def download_merged(req: DownloadRequest):
+    # v12: X — direct MP4 (may audio na), walang merge, walang ffmpeg —
+    # kaya bago pa ang ffmpeg check ang ruta nito.
+    if "x.com" in req.url or "twitter.com" in req.url:
+        return _download_x(req.url)
     ffmpeg_path = shutil.which("ffmpeg")
     if not ffmpeg_path:
         try:
